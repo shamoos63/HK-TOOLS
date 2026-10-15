@@ -1,0 +1,507 @@
+import 'dart:io';
+
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+
+import '../../../core/theme/hud_theme.dart';
+import '../../../core/utils/byte_format.dart';
+import '../../../core/utils/plist.dart';
+import '../../../domain/entities/ios_device.dart';
+import '../../providers/device_providers.dart';
+import '../../widgets/hud_widgets.dart';
+import 'device_widgets.dart';
+
+/// A finished `idevicebackup2` backup: `<root>/<udid>/Info.plist`.
+class _BackupEntry {
+  _BackupEntry(this.dir, this.info);
+
+  final Directory dir;
+  final Map<String, Object?> info;
+
+  String get udid => p.basename(dir.path);
+  String get name =>
+      info.str('Device Name') ?? info.str('Display Name') ?? udid;
+  String? get version => info.str('Product Version');
+  String? get product => info.str('Product Type');
+
+  /// From Manifest.plist; encrypted backups need their password to restore.
+  bool get encrypted {
+    try {
+      final m = File(p.join(dir.path, 'Manifest.plist'));
+      if (!m.existsSync()) return false;
+      final v = parsePlistBytes(m.readAsBytesSync());
+      return v is Map<String, Object?> && v.boolean('IsEncrypted') == true;
+    } on Object {
+      return false;
+    }
+  }
+
+  DateTime? get date {
+    final v = info['Last Backup Date'];
+    return v is DateTime ? v.toLocal() : null;
+  }
+}
+
+final _backupsProvider = FutureProvider.autoDispose
+    .family<List<_BackupEntry>, String>((ref, root) async {
+      final dir = Directory(root);
+      if (!dir.existsSync()) return const [];
+      final out = <_BackupEntry>[];
+      for (final d in dir.listSync().whereType<Directory>()) {
+        final info = File(p.join(d.path, 'Info.plist'));
+        if (!info.existsSync()) continue;
+        try {
+          out.add(_BackupEntry(d, parsePlistDict(await info.readAsString())));
+        } on Object {
+          out.add(_BackupEntry(d, const {}));
+        }
+      }
+      out.sort(
+        (a, b) => (b.date ?? DateTime(0)).compareTo(a.date ?? DateTime(0)),
+      );
+      return out;
+    });
+
+final _encryptionProvider = FutureProvider.autoDispose.family<bool?, String>((
+  ref,
+  id,
+) async {
+  final d = ref.read(devicesProvider).byId(id);
+  return d == null
+      ? null
+      : ref.read(deviceServiceProvider).backupWillEncrypt(d);
+});
+
+class BackupTab extends ConsumerWidget {
+  const BackupTab({super.key, required this.device});
+
+  final ConnectedDevice device;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final root = p.join(ref.watch(deviceDataDirProvider), 'Backups');
+    final job = ref.watch(backupJobProvider);
+    final running = job.status == JobStatus.running;
+    final encrypted = ref.watch(_encryptionProvider(device.id)).value;
+    final backups = ref.watch(_backupsProvider(root));
+    final svc = ref.read(deviceServiceProvider);
+    final jobs = ref.read(backupJobProvider.notifier);
+
+    Future<void> backup({required bool full}) async {
+      await jobs.run(
+        full
+            ? 'Full backup of ${device.displayName}'
+            : 'Backup of ${device.displayName}',
+        () => svc.startBackup(device, root, full: full),
+      );
+      ref.invalidate(_backupsProvider(root));
+    }
+
+    return ListView(
+      children: [
+        DeviceCard(
+          title: 'Back up ${device.displayName}',
+          icon: Icons.backup_rounded,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Full local backup in the iTunes / Finder format: photos, messages, app '
+                'data, settings and Health (when encrypted). Saved to:',
+                style: const TextStyle(
+                  color: HudColors.textMuted,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 4),
+              InkWell(
+                onTap: () {
+                  Directory(root).createSync(recursive: true);
+                  revealPath(root);
+                },
+                child: Text(root, style: HudTheme.telemetry(size: 12)),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  HudPill(
+                    encrypted == null
+                        ? 'Encryption: unknown'
+                        : encrypted
+                        ? 'Encrypted backups'
+                        : 'Not encrypted',
+                    color: encrypted == true
+                        ? HudColors.success
+                        : HudColors.warning,
+                    icon: encrypted == true
+                        ? Icons.lock_rounded
+                        : Icons.lock_open_rounded,
+                  ),
+                  if (encrypted != null)
+                    NeonButton(
+                      label: encrypted
+                          ? 'Turn off encryption'
+                          : 'Encrypt backups',
+                      variant: NeonVariant.ghost,
+                      compact: true,
+                      onPressed: running
+                          ? null
+                          : () => _toggleEncryption(
+                              context,
+                              ref,
+                              root,
+                              !encrypted,
+                            ),
+                    ),
+                  NeonButton(
+                    label: 'Back up now',
+                    icon: Icons.backup_rounded,
+                    compact: true,
+                    onPressed: running ? null : () => backup(full: false),
+                  ),
+                  NeonButton(
+                    label: 'Full backup',
+                    variant: NeonVariant.ghost,
+                    compact: true,
+                    onPressed: running ? null : () => backup(full: true),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        if (job.status != JobStatus.idle) ...[
+          const SizedBox(height: 14),
+          _JobCard(job: job, onCancel: running ? jobs.cancel : null),
+        ],
+        const SizedBox(height: 14),
+        DeviceCard(
+          title: 'Backups on this computer',
+          icon: Icons.inventory_2_rounded,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              HudIconButton(
+                icon: Icons.folder_open_rounded,
+                tooltip: 'Restore from another folder…',
+                onPressed: running
+                    ? null
+                    : () => _restoreFromFolder(context, ref),
+              ),
+              HudIconButton(
+                icon: Icons.refresh_rounded,
+                tooltip: 'Reload',
+                onPressed: () => ref.invalidate(_backupsProvider(root)),
+              ),
+            ],
+          ),
+          child: backups.when(
+            loading: () => const LinearProgressIndicator(minHeight: 2),
+            error: (e, _) => DeviceError(e),
+            data: (list) => list.isEmpty
+                ? const Text(
+                    'No backups yet.',
+                    style: TextStyle(color: HudColors.textMuted, fontSize: 13),
+                  )
+                : Column(
+                    children: [
+                      for (final b in list)
+                        _BackupRow(
+                          entry: b,
+                          isThisDevice: b.udid == device.udid,
+                          onReveal: () => revealPath(b.dir.path),
+                          onDelete: running
+                              ? null
+                              : () => _delete(context, ref, root, b),
+                          onRestore: running
+                              ? null
+                              : () => _restore(
+                                  context,
+                                  ref,
+                                  p.dirname(b.dir.path),
+                                  b.udid,
+                                  b.name,
+                                ),
+                        ),
+                    ],
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _toggleEncryption(
+    BuildContext context,
+    WidgetRef ref,
+    String root,
+    bool enable,
+  ) async {
+    final pw = await promptText(
+      context,
+      title: enable ? 'Choose a backup password' : 'Current backup password',
+      confirmLabel: enable ? 'Encrypt' : 'Turn off',
+      obscure: true,
+      hint: enable ? 'Needed to restore these backups. Do not lose it.' : null,
+    );
+    if (pw == null || pw.isEmpty || !context.mounted) return;
+    await runDeviceAction(
+      context,
+      enable ? 'Backup encryption enabled' : 'Backup encryption disabled',
+      () => ref
+          .read(deviceServiceProvider)
+          .backupEncryption(device, root, enable: enable, password: pw),
+    );
+    ref.invalidate(_encryptionProvider(device.id));
+  }
+
+  Future<void> _delete(
+    BuildContext context,
+    WidgetRef ref,
+    String root,
+    _BackupEntry b,
+  ) async {
+    final size = await _folderSize(b.dir);
+    if (!context.mounted) return;
+    final ok = await confirmDialog(
+      context,
+      title: 'Delete the backup of ${b.name}?',
+      message:
+          '${formatBytes(size, decimals: 1)} at ${b.dir.path} will be permanently deleted '
+          'from this computer. The device itself is not affected.',
+      confirmLabel: 'Delete backup',
+      danger: true,
+      typeToConfirm: 'DELETE',
+    );
+    if (!ok || !context.mounted) return;
+    await runDeviceAction(
+      context,
+      'Backup of ${b.name} deleted',
+      () => b.dir.delete(recursive: true),
+    );
+    ref.invalidate(_backupsProvider(root));
+  }
+
+  static Future<int> _folderSize(Directory dir) async {
+    var total = 0;
+    try {
+      await for (final e in dir.list(recursive: true, followLinks: false)) {
+        if (e is File) total += await e.length();
+      }
+    } on FileSystemException {
+      // Partial size is fine for the confirmation text.
+    }
+    return total;
+  }
+
+  Future<void> _restoreFromFolder(BuildContext context, WidgetRef ref) async {
+    final dir = await getDirectoryPath(confirmButtonText: 'Use this backup');
+    if (dir == null || !context.mounted) return;
+    if (!File(p.join(dir, 'Info.plist')).existsSync()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pick the backup folder that contains Info.plist.'),
+        ),
+      );
+      return;
+    }
+    await _restore(
+      context,
+      ref,
+      p.dirname(dir),
+      p.basename(dir),
+      p.basename(dir),
+    );
+  }
+
+  Future<void> _restore(
+    BuildContext context,
+    WidgetRef ref,
+    String root,
+    String sourceUdid,
+    String name,
+  ) async {
+    final ok = await confirmDialog(
+      context,
+      title: 'Restore "$name" to ${device.displayName}?',
+      message:
+          'All current data on ${device.displayName} is replaced with the backup. '
+          'Turn off Find My on the device first. The device reboots when done.',
+      confirmLabel: 'Restore backup',
+      danger: true,
+      typeToConfirm: 'RESTORE',
+    );
+    if (!ok || !context.mounted) return;
+    final pw = await promptText(
+      context,
+      title: 'Backup password (leave empty if not encrypted)',
+      confirmLabel: 'Start',
+      obscure: true,
+    );
+    if (pw == null) return;
+    await ref
+        .read(backupJobProvider.notifier)
+        .run(
+          'Restoring backup to ${device.displayName}',
+          () => ref
+              .read(deviceServiceProvider)
+              .startBackupRestore(
+                device,
+                root,
+                sourceUdid: sourceUdid,
+                password: pw.isEmpty ? null : pw,
+              ),
+        );
+  }
+}
+
+class _BackupRow extends StatelessWidget {
+  const _BackupRow({
+    required this.entry,
+    required this.isThisDevice,
+    required this.onReveal,
+    this.onRestore,
+    this.onDelete,
+  });
+
+  final _BackupEntry entry;
+  final bool isThisDevice;
+  final VoidCallback onReveal;
+  final VoidCallback? onRestore;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = entry.date;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 20,
+            color: isThisDevice ? HudColors.cyan : HudColors.textMuted,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  [
+                    ?entry.product,
+                    if (entry.version != null) 'iOS ${entry.version}',
+                    if (d != null)
+                      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} '
+                          '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}',
+                    if (entry.encrypted) 'encrypted',
+                  ].join(' · '),
+                  style: HudTheme.telemetry(
+                    size: 11.5,
+                    color: HudColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (isThisDevice) const HudPill('This device', color: HudColors.cyan),
+          const SizedBox(width: 8),
+          HudIconButton(
+            icon: Icons.folder_open_rounded,
+            tooltip: 'Show in folder',
+            onPressed: onReveal,
+          ),
+          NeonButton(
+            label: 'Restore',
+            icon: Icons.settings_backup_restore_rounded,
+            variant: NeonVariant.ghost,
+            compact: true,
+            onPressed: onRestore,
+          ),
+          const SizedBox(width: 4),
+          HudIconButton(
+            icon: Icons.delete_outline_rounded,
+            tooltip: 'Delete this backup',
+            color: HudColors.danger,
+            onPressed: onDelete,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JobCard extends StatelessWidget {
+  const _JobCard({required this.job, this.onCancel});
+
+  final JobState job;
+  final VoidCallback? onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (job.status) {
+      JobStatus.succeeded => HudColors.success,
+      JobStatus.failed => HudColors.danger,
+      _ => HudColors.cyan,
+    };
+    return DeviceCard(
+      title: job.title,
+      icon: switch (job.status) {
+        JobStatus.succeeded => Icons.check_circle_rounded,
+        JobStatus.failed => Icons.error_rounded,
+        _ => Icons.sync_rounded,
+      },
+      trailing: onCancel == null
+          ? HudPill(
+              job.status == JobStatus.succeeded ? 'Completed' : 'Failed',
+              color: color,
+            )
+          : NeonButton(
+              label: 'Cancel',
+              variant: NeonVariant.danger,
+              compact: true,
+              onPressed: onCancel,
+            ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (job.status == JobStatus.running)
+            GlowProgressBar(value: job.progress ?? 0, height: 5)
+          else
+            GlowProgressBar(value: 1, height: 5, colors: [color, color]),
+          const SizedBox(height: 10),
+          Container(
+            height: 160,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: ListView(
+              reverse: true,
+              children: [
+                for (final l in job.log.reversed.take(200))
+                  Text(
+                    l,
+                    style: HudTheme.telemetry(
+                      size: 11,
+                      color: HudColors.textPrimary,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -1,0 +1,90 @@
+# Builds the Windows device tools HK Tools' setup assistant can't get from a
+# trusted prebuilt source: idevicerestore, irecovery and ideviceinstaller
+# (plus the libimobiledevice stack and every DLL they need), and publishes
+# them as a release asset.
+#
+# After the first successful run, set `windowsExtrasRepo` in
+# lib/services/setup/dependency_manager.dart to "<owner>/<repo>" of this
+# repository; the setup assistant then downloads the latest
+# hk-tools-windows-device-tools.zip and verifies it against the SHA-256 digest
+# GitHub records for the asset.
+name: Windows device tools
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 1 * *" # monthly rebuild against upstream master
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            base-devel git make libtool autoconf automake-wrapper pkg-config zip
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-curl
+            mingw-w64-x86_64-libzip
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-readline
+
+      - name: Build libimobiledevice stack and tools
+        shell: msys2 {0}
+        run: |
+          set -e
+          repos=(libplist libimobiledevice-glue libusbmuxd libtatsu \
+                 libimobiledevice libirecovery ideviceinstaller idevicerestore)
+          for repo in "${repos[@]}"; do
+            echo "::group::$repo"
+            git clone --depth 1 "https://github.com/libimobiledevice/$repo"
+            pushd "$repo"
+            ./autogen.sh --prefix=/mingw64 --without-cython
+            make -j"$(nproc)"
+            make install
+            popd
+            echo "::endgroup::"
+          done
+
+      - name: Collect executables and DLLs
+        shell: msys2 {0}
+        run: |
+          set -e
+          mkdir -p rel
+          for exe in /mingw64/bin/idevice*.exe /mingw64/bin/irecovery.exe \
+                     /mingw64/bin/afcclient.exe /mingw64/bin/iproxy.exe \
+                     /mingw64/bin/inetcat.exe /mingw64/bin/plistutil.exe; do
+            [ -f "$exe" ] && cp -v "$exe" rel/
+          done
+          # Every MinGW DLL the executables load (recursively via ldd).
+          for f in rel/*.exe; do
+            ldd "$f" | awk '/mingw64/ {print $3}' | sort -u | xargs -r -I{} cp -vn {} rel/
+          done
+          for f in rel/*.dll; do
+            ldd "$f" | awk '/mingw64/ {print $3}' | sort -u | xargs -r -I{} cp -vn {} rel/
+          done
+          for repo in libplist libimobiledevice-glue libusbmuxd libtatsu \
+                      libimobiledevice libirecovery ideviceinstaller idevicerestore; do
+            [ -f "$repo/COPYING" ] && cp "$repo/COPYING" "rel/LICENSE-$repo.txt"
+          done
+          test -f rel/idevicerestore.exe
+          test -f rel/irecovery.exe
+          test -f rel/ideviceinstaller.exe
+          (cd rel && zip -r ../hk-tools-windows-device-tools.zip .)
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="device-tools-$(date +%Y%m%d)-${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" hk-tools-windows-device-tools.zip \
+            --title "Windows device tools $TAG" \
+            --notes "idevicerestore, irecovery, ideviceinstaller and the libimobiledevice stack (MSYS2 MinGW64 build)." \
+            --latest
