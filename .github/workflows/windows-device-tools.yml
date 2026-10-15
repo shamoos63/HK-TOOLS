@@ -82,9 +82,13 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          # No checkout in this job, so tell gh which repository to publish to.
+          GH_REPO: ${{ github.repository }}
         run: |
           TAG="device-tools-$(date +%Y%m%d)-${GITHUB_RUN_NUMBER}"
           gh release create "$TAG" hk-tools-windows-device-tools.zip \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
             --title "Windows device tools $TAG" \
             --notes "idevicerestore, irecovery, ideviceinstaller and the libimobiledevice stack (MSYS2 MinGW64 build)." \
             --latest
