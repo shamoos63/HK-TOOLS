@@ -17,6 +17,7 @@ import '../screens/setup/setup_assistant.dart';
 import '../widgets/hud_widgets.dart';
 import 'hud_header.dart';
 import 'sidebar.dart';
+import 'window_chrome.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -73,7 +74,21 @@ class _AppShellState extends ConsumerState<AppShell> {
                 Expanded(
                   child: Column(
                     children: [
-                      HudHeader(searchFocus: _searchFocus),
+                      // Windows: no system title bar. The header doubles as
+                      // the drag area and carries the window buttons.
+                      Stack(
+                        children: [
+                          WindowDragBackground(
+                            child: HudHeader(searchFocus: _searchFocus),
+                          ),
+                          if (useCustomWindowChrome)
+                            const Positioned(
+                              top: 0,
+                              right: 0,
+                              child: WindowControls(),
+                            ),
+                        ],
+                      ),
                       Expanded(
                         child: AnimatedSwitcher(
                           duration: const Duration(milliseconds: 260),

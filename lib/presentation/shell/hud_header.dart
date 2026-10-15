@@ -7,6 +7,7 @@ import '../providers/catalog_providers.dart';
 import '../providers/download_providers.dart';
 import '../providers/ui_providers.dart';
 import '../widgets/hud_widgets.dart';
+import 'window_chrome.dart';
 
 /// Universal search with filter tags + live telemetry badges.
 /// Sections where the firmware search bar is hidden.
@@ -74,7 +75,8 @@ class _HudHeaderState extends ConsumerState<HudHeader> {
     final showSearch = !hideSearchIn.contains(section);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 18, 24, 10),
+      // Leave room for the window buttons in the top-right corner (Windows).
+      padding: EdgeInsets.fromLTRB(24, useCustomWindowChrome ? 38 : 18, 24, 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -10,6 +10,7 @@ import '../providers/download_providers.dart';
 import '../providers/ipa_library_providers.dart';
 import '../providers/ui_providers.dart';
 import '../widgets/hud_widgets.dart';
+import 'window_chrome.dart';
 
 class Sidebar extends ConsumerWidget {
   const Sidebar({super.key});
@@ -43,7 +44,8 @@ class Sidebar extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _Logo(),
+          // Windows: the logo area also moves the window.
+          const WindowDragArea(child: _Logo()),
           const SizedBox(height: 30),
           const Padding(
             padding: EdgeInsets.only(left: 10, bottom: 8),

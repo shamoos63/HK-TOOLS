@@ -110,7 +110,7 @@ abstract final class Downloads {
   /// `.github/workflows/windows-device-tools.yml` (idevicerestore,
   /// irecovery, ideviceinstaller + DLLs). Empty until that workflow has been
   /// run and published.
-  static const windowsExtrasRepo = '';
+  static const windowsExtrasRepo = 'shamoos63/HK-TOOLS';
   static const windowsExtrasAsset = 'hk-tools-windows-device-tools.zip';
 
   /// Apple Devices in the Microsoft Store (USB driver + usbmuxd service).
@@ -376,6 +376,13 @@ class DependencyManager {
           ),
         )
         .timeout(const Duration(seconds: 30));
+    if (res.statusCode == 404) {
+      throw DependencyInstallException(
+        'No Windows device tools release is published in '
+        '${Downloads.windowsExtrasRepo} yet. Run the "Windows device tools" '
+        'workflow on GitHub, then try again.',
+      );
+    }
     if (res.statusCode != 200) {
       throw DependencyInstallException(
         'GitHub returned ${res.statusCode} for ${Downloads.windowsExtrasRepo}.',

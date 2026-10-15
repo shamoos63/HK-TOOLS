@@ -197,16 +197,6 @@ Win32Window::MessageHandler(HWND hwnd,
 
       return 0;
     }
-    case WM_GETMINMAXINFO: {
-      // Smallest usable window; the Flutter side scales the UI down to fit.
-      const double scale = FlutterDesktopGetDpiForMonitor(
-                               MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)) /
-                           96.0;
-      auto info = reinterpret_cast<MINMAXINFO*>(lparam);
-      info->ptMinTrackSize.x = Scale(960, scale);
-      info->ptMinTrackSize.y = Scale(600, scale);
-      return 0;
-    }
     case WM_SIZE: {
       RECT rect = GetClientArea();
       if (child_content_ != nullptr) {

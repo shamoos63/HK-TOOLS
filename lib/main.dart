@@ -12,10 +12,13 @@ import 'data/repositories/settings_store.dart';
 import 'presentation/providers/core_providers.dart';
 import 'presentation/providers/repository_providers.dart';
 import 'presentation/shell/app_shell.dart';
+import 'presentation/shell/window_chrome.dart';
 import 'presentation/widgets/ui_scale.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Windows: hide the system title bar; the app draws its own buttons.
+  await initWindowChrome();
   final support = (await getApplicationSupportDirectory()).path;
   Hive.init(p.join(support, 'hive'));
   final catalogBox = await Hive.openBox<String>(CatalogCache.boxName);
