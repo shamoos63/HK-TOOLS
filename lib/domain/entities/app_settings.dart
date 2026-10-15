@@ -18,6 +18,7 @@ class AppSettings {
     this.askIpaLocation = false,
     this.keepOldIpaVersions = false,
     this.checkToolsAtStartup = true,
+    this.galleryPrivacyMode = false,
   });
 
   /// Repository folder downloads land in (e.g. `D:\Apple_Firmwares`).
@@ -58,6 +59,9 @@ class AppSettings {
   /// Run the setup assistant check when the app starts.
   final bool checkToolsAtStartup;
 
+  /// Gallery thumbnails are blurred until switched off.
+  final bool galleryPrivacyMode;
+
   /// Windows renders larger at the common 125–150% display scaling, so the
   /// UI starts a step smaller there.
   static double get defaultUiScale => Platform.isWindows ? 0.9 : 1.0;
@@ -80,6 +84,7 @@ class AppSettings {
     bool? askIpaLocation,
     bool? keepOldIpaVersions,
     bool? checkToolsAtStartup,
+    bool? galleryPrivacyMode,
   }) => AppSettings(
     targetDirectory: targetDirectory ?? this.targetDirectory,
     tempDirectory: tempDirectory != null ? tempDirectory() : this.tempDirectory,
@@ -102,6 +107,7 @@ class AppSettings {
     askIpaLocation: askIpaLocation ?? this.askIpaLocation,
     keepOldIpaVersions: keepOldIpaVersions ?? this.keepOldIpaVersions,
     checkToolsAtStartup: checkToolsAtStartup ?? this.checkToolsAtStartup,
+    galleryPrivacyMode: galleryPrivacyMode ?? this.galleryPrivacyMode,
   );
 
   factory AppSettings.fromJson(
@@ -127,6 +133,7 @@ class AppSettings {
     askIpaLocation: json['askIpaLocation'] as bool? ?? false,
     keepOldIpaVersions: json['keepOldIpaVersions'] as bool? ?? false,
     checkToolsAtStartup: json['checkToolsAtStartup'] as bool? ?? true,
+    galleryPrivacyMode: json['galleryPrivacyMode'] as bool? ?? false,
   );
 
   Map<String, dynamic> toJson() => {
@@ -145,5 +152,6 @@ class AppSettings {
     'askIpaLocation': askIpaLocation,
     'keepOldIpaVersions': keepOldIpaVersions,
     'checkToolsAtStartup': checkToolsAtStartup,
+    'galleryPrivacyMode': galleryPrivacyMode,
   };
 }

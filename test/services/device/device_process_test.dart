@@ -52,6 +52,27 @@ printf 'CPID: 0x8020\nECID: 0x1AB2C3\nMODE: DFU\nPRODUCT: iPhone11,8\n' ''');
     expect(devices.last.productType, 'iPhone11,8');
   });
 
+  test('afcclient commands end options with -- so ls -l works', () async {
+    final args = p.join(dir.path, 'afc_args.txt');
+    await script('afcclient', '''
+echo "\$@" >> "$args"
+echo "drwxr-xr-x    2 mobile mobile      14400 15 Oct 2026 14:45:04 103APPLE"
+echo "drwxr-xr-x    4 mobile mobile        128 07 Oct 2026 06:49:14 .MISC"''');
+    final svc = DeviceService(DeviceToolchain(customDirectory: dir.path));
+    const d = ConnectedDevice(
+      id: 'u',
+      udid: 'abc',
+      mode: DeviceMode.normal,
+      connection: DeviceConnection.usb,
+    );
+    final entries = await svc.listDirectory(d, '/DCIM');
+    expect(entries.map((e) => e.name), ['.MISC', '103APPLE']);
+    await svc.pull(d, '/DCIM/103APPLE', '/tmp/out', recursive: true);
+    final calls = File(args).readAsLinesSync();
+    expect(calls[0], '-u abc -- ls -l /DCIM');
+    expect(calls[1], '-u abc -- get -rf /DCIM/103APPLE /tmp/out');
+  });
+
   test('restore runner streams progress and reports success', () async {
     final args = p.join(dir.path, 'args.txt');
     await script('idevicerestore', '''

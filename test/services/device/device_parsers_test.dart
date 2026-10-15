@@ -126,11 +126,41 @@ void main() {
       expect(b.level, 86);
       expect(b.isCharging, isTrue);
       expect(b.cycleCount, 412);
-      expect(b.maxCapacity, 2443);
-      expect(b.healthPercent!.round(), 87);
+      // NominalChargeCapacity wins: it is what Settings › Battery shows.
+      expect(b.maxCapacity, 2500);
+      expect(b.healthPercent!.round(), 89);
       expect(b.temperatureC, closeTo(30.5, 0.001));
       expect(b.voltage, closeTo(4.123, 0.001));
       expect(b.amperage, -310);
+    });
+
+    test('battery figures nested in BatteryData (iOS 26 layout)', () {
+      final b = DeviceParsers.battery(
+        parsePlistDict(
+          plist('''<dict><key>IORegistry</key><dict>
+  <key>CycleCount</key><integer>633</integer>
+  <key>MaxCapacity</key><integer>100</integer>
+  <key>CurrentCapacity</key><integer>52</integer>
+  <key>Voltage</key><integer>4035</integer>
+  <key>IsCharging</key><true/>
+  <key>BatteryData</key><dict>
+    <key>DesignCapacity</key><integer>4395</integer>
+    <key>NominalChargeCapacity</key><integer>3953</integer>
+    <key>FullChargeCapacity</key><integer>4029</integer>
+    <key>TrueRemainingCapacity</key><integer>2071</integer>
+    <key>MaxCapacity</key><integer>100</integer>
+  </dict>
+</dict></dict>'''),
+        ),
+        null,
+      );
+      expect(b.level, 52);
+      expect(b.cycleCount, 633);
+      expect(b.designCapacity, 4395);
+      expect(b.maxCapacity, 3953);
+      expect(b.currentCapacity, 2071);
+      expect(b.healthPercent!.round(), 90);
+      expect(b.temperatureC, isNull);
     });
 
     test('storage', () {

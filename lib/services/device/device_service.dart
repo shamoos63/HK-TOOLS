@@ -349,9 +349,14 @@ class DeviceService {
 
   /// AFC root is `/private/var/mobile/Media`; with [documentsOf] it is the
   /// Documents folder of that app (house_arrest, file-sharing apps only).
+  ///
+  /// Ends with `--`: afcclient parses options anywhere on the command line,
+  /// so without it the command's own flags (`ls -l`, `get -rf`, `put -f`)
+  /// are rejected as unknown afcclient options and nothing runs.
   List<String> _afc(ConnectedDevice d, String? documentsOf) => [
     ..._target(d),
     if (documentsOf != null) ...['--documents', documentsOf],
+    '--',
   ];
 
   Future<List<AfcEntry>> listDirectory(

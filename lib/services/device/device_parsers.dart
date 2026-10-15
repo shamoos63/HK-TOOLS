@@ -96,10 +96,16 @@ abstract final class DeviceParsers {
     Map<String, Object?>? lockdown,
   ) {
     final r = ioreg?.dict('IORegistry') ?? ioreg ?? const {};
+    // Newer iOS versions keep the mAh figures (design / full-charge
+    // capacity) only in the nested BatteryData dictionary, while the top
+    // level reports percentages; read the top level first, then BatteryData.
+    final bd = r.dict('BatteryData') ?? const {};
     final l = lockdown ?? const {};
+    int? n(String key) => r.integer(key) ?? bd.integer(key);
+    double? real(String key) => r.real(key) ?? bd.real(key);
     int? mah(int? v) => v != null && v > 100 ? v : null;
-    final rawTemp = r.real('Temperature');
-    final rawVoltage = r.real('Voltage') ?? r.real('AppleRawBatteryVoltage');
+    final rawTemp = real('Temperature') ?? real('VirtualTemperature');
+    final rawVoltage = real('Voltage') ?? real('AppleRawBatteryVoltage');
     final currentPct = r.integer('CurrentCapacity');
     return BatteryInfo(
       level:
@@ -109,20 +115,26 @@ abstract final class DeviceParsers {
       fullyCharged: l.boolean('FullyCharged') ?? r.boolean('FullyCharged'),
       externalConnected:
           l.boolean('ExternalConnected') ?? r.boolean('ExternalConnected'),
-      cycleCount: r.integer('CycleCount'),
-      designCapacity: r.integer('DesignCapacity'),
+      cycleCount: n('CycleCount'),
+      designCapacity: mah(n('DesignCapacity')),
+      // NominalChargeCapacity is what Settings › Battery › Health uses.
       maxCapacity:
-          mah(r.integer('AppleRawMaxCapacity')) ??
-          mah(r.integer('NominalChargeCapacity')) ??
-          mah(r.integer('MaxCapacity')),
+          mah(n('NominalChargeCapacity')) ??
+          mah(n('AppleRawMaxCapacity')) ??
+          mah(n('FullChargeCapacity')) ??
+          mah(n('MaxCapacity')),
       currentCapacity:
-          mah(r.integer('AppleRawCurrentCapacity')) ?? mah(currentPct),
+          mah(n('AppleRawCurrentCapacity')) ??
+          mah(n('TrueRemainingCapacity')) ??
+          mah(n('RemainingCapacity')) ??
+          mah(currentPct),
       // Reported in centi-degrees Celsius.
       temperatureC: rawTemp == null ? null : rawTemp / 100,
       // Reported in millivolts.
       voltage: rawVoltage == null ? null : rawVoltage / 1000,
-      amperage: r.integer('InstantAmperage') ?? r.integer('Amperage'),
-      serial: r.str('Serial') ?? r.str('BatterySerialNumber'),
+      amperage: n('InstantAmperage') ?? n('Amperage'),
+      serial:
+          r.str('Serial') ?? r.str('BatterySerialNumber') ?? bd.str('Serial'),
     );
   }
 
