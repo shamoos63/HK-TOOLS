@@ -233,6 +233,9 @@ class DeviceToolchain {
       args,
       environment: environment,
     );
+    // Nothing is ever typed into these tools: closing stdin makes one that
+    // unexpectedly prompts fail at once instead of waiting until the timeout.
+    unawaited(process.stdin.close().catchError((_) {}));
     final out = StringBuffer();
     final err = StringBuffer();
     final outDone = process.stdout.transform(_utf8.decoder).forEach(out.write);

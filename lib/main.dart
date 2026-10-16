@@ -157,12 +157,18 @@ class HkIpswManagerApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scale = ref.watch(settingsProvider.select((s) => s.effectiveUiScale));
+    final reduced = ref.watch(
+      settingsProvider.select((s) => s.effectiveReducedEffects),
+    );
     return MaterialApp(
       title: Branding.appName,
       debugShowCheckedModeBanner: false,
       theme: HudTheme.dark(),
       // Wraps the Navigator too, so dialogs and snackbars scale with the app.
-      builder: (context, child) => UiScale(scale: scale, child: child!),
+      builder: (context, child) => HudEffects(
+        reduced: reduced,
+        child: UiScale(scale: scale, child: child!),
+      ),
       home: const AppShell(),
     );
   }

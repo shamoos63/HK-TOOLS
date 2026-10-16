@@ -111,10 +111,11 @@ class _SetupAssistantDialogState extends ConsumerState<SetupAssistantDialog> {
                   ? 'Sources: Apple Devices from the Microsoft Store; libimobiledevice '
                         'tools (github.com/jrjr/libimobiledevice-windows) and ipatool '
                         '(github.com/majd/ipatool) from GitHub, checked against pinned '
-                        'SHA-256 hashes; Python via winget and pymobiledevice3 via pip. '
-                        'Installing means you accept each package\'s license.'
-                  : 'Installs use Homebrew and pip. Installing means you accept each '
-                        'package\'s license.',
+                        'SHA-256 hashes; pymobiledevice3 with uv (github.com/astral-sh/uv), '
+                        'which brings its own Python 3.12. Installing means you accept '
+                        'each package\'s license.'
+                  : 'Installs use Homebrew, and uv for pymobiledevice3 (with its own '
+                        'Python 3.12). Installing means you accept each package\'s license.',
               style: const TextStyle(
                 color: HudColors.textMuted,
                 fontSize: 11.5,

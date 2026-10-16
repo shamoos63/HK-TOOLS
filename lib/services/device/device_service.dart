@@ -193,14 +193,22 @@ class DeviceService {
     List<String> args, {
     Duration timeout = const Duration(minutes: 3),
   }) async {
-    final r = await tools.run(DeviceTool.pymobiledevice3, [
-      ...args,
-      '--udid',
-      d.udid!,
-    ], timeout: timeout);
+    final r = await tools.run(
+      DeviceTool.pymobiledevice3,
+      [...args, '--udid', d.udid!],
+      timeout: timeout,
+      // UTF-8 + no colours: readable messages on Windows consoles' code pages.
+      environment: const {
+        'PYTHONIOENCODING': 'utf-8',
+        'PYTHONUTF8': '1',
+        'NO_COLOR': '1',
+      },
+    );
     final text = '${r.stdout}\n${r.stderr}';
     final failed = !r.ok || RegExp(r'\bERROR\b|Traceback').hasMatch(text);
     if (failed) {
+      final known = describeSetupFailure(text, command: args.first);
+      if (known != null) throw Exception(known);
       final line = text
           .split('\n')
           .map((l) => stripAnsi(l).trim())

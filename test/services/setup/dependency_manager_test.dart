@@ -105,6 +105,10 @@ void main() {
       Downloads.windowsDeviceTools,
       Downloads.ipatoolWindowsX64,
       Downloads.ipatoolWindowsArm64,
+      Downloads.uvWindowsX64,
+      Downloads.uvWindowsArm64,
+      Downloads.uvMacArm64,
+      Downloads.uvMacX64,
     ]) {
       expect(d.url, startsWith('https://github.com/'));
       expect(

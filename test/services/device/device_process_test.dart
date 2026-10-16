@@ -73,6 +73,22 @@ echo "drwxr-xr-x    4 mobile mobile        128 07 Oct 2026 06:49:14 .MISC"''');
     expect(calls[1], '-u abc -- get -rf /DCIM/103APPLE /tmp/out');
   });
 
+  test('a tool that prompts gets EOF instead of hanging', () async {
+    await script(
+      'ideviceinfo',
+      'read answer || { echo "no input" >&2; exit 3; }',
+    );
+    final sw = Stopwatch()..start();
+    final r = await DeviceToolchain(customDirectory: dir.path).run(
+      DeviceTool.ideviceinfo,
+      const [],
+      timeout: const Duration(seconds: 10),
+    );
+    expect(r.timedOut, isFalse);
+    expect(r.exitCode, 3);
+    expect(sw.elapsed, lessThan(const Duration(seconds: 5)));
+  });
+
   test('restore runner streams progress and reports success', () async {
     final args = p.join(dir.path, 'args.txt');
     await script('idevicerestore', '''

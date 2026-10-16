@@ -28,11 +28,11 @@ enum Dependency {
         'Recovery / DFU detection, app installs.',
   ),
   ipatool('ipatool', 'App Store sign-in, IPA downloads and library updates.'),
-  python('Python 3', 'Runs pymobiledevice3.'),
   pymobiledevice3(
     'pymobiledevice3',
     'Activation, Skip Setup, factory reset, built-in app icons; app '
-        'install / uninstall when ideviceinstaller is missing.',
+        'install / uninstall when ideviceinstaller is missing. Installed with '
+        'its own private Python 3.12, whatever Python the PC has.',
   );
 
   const Dependency(this.title, this.purpose, {this.required = false});
@@ -103,6 +103,29 @@ abstract final class Downloads {
     'https://github.com/majd/ipatool/releases/download/v2.7.0/'
         'ipatool-2.7.0-windows-arm64.tar.gz',
     '85ab35a268b47e1729412178063fe11621cae1135f33d3b9ab5233d436bf2562',
+  );
+
+  /// uv (github.com/astral-sh/uv): installs pymobiledevice3 together with
+  /// its own Python, independent of any system Python.
+  static const uvWindowsX64 = PinnedDownload(
+    'https://github.com/astral-sh/uv/releases/download/0.13.1/'
+        'uv-x86_64-pc-windows-msvc.zip',
+    '3b2661a463a5baea7f5076ea2b25ab71d77f36a6c0d809e5350651792f80a672',
+  );
+  static const uvWindowsArm64 = PinnedDownload(
+    'https://github.com/astral-sh/uv/releases/download/0.13.1/'
+        'uv-aarch64-pc-windows-msvc.zip',
+    'ec7846a5939b4654afee24f2d82bf6fde71bd7a6952d7748f1135ab301dd0a49',
+  );
+  static const uvMacArm64 = PinnedDownload(
+    'https://github.com/astral-sh/uv/releases/download/0.13.1/'
+        'uv-aarch64-apple-darwin.tar.gz',
+    'cfe454573412ff7380d15fc7dae5997ab53ffce72fce0a78e91ddbc84001acd2',
+  );
+  static const uvMacX64 = PinnedDownload(
+    'https://github.com/astral-sh/uv/releases/download/0.13.1/'
+        'uv-x86_64-apple-darwin.tar.gz',
+    'bb7b805bdcf3d0bc8c74ceb94569e6b3e8aa35bd492acdbb9d46bf46d9d4ff6b',
   );
 
   /// GitHub repository ("owner/name") whose latest release carries
@@ -192,23 +215,13 @@ class DependencyManager {
           detail: path,
           canInstall: Platform.isWindows || _brew != null,
         );
-      case Dependency.python:
-        final py = await _python();
-        return DependencyStatus(
-          dependency: d,
-          installed: py != null,
-          detail: py?.$2,
-          canInstall: Platform.isWindows ? await _hasWinget() : _brew != null,
-          manualHint: 'Install Python 3 from python.org.',
-        );
       case Dependency.pymobiledevice3:
         final path = tools.resolve(DeviceTool.pymobiledevice3);
         return DependencyStatus(
           dependency: d,
           installed: path != null,
           detail: path,
-          canInstall: await _python() != null,
-          manualHint: 'Install Python 3 first.',
+          canInstall: true,
         );
     }
   }
@@ -290,45 +303,8 @@ class DependencyManager {
         } else {
           await _brewInstall(['ipatool'], progress);
         }
-      case Dependency.python:
-        if (Platform.isWindows) {
-          await _winget(
-            [
-              'install',
-              '--id',
-              'Python.Python.3.12',
-              '--exact',
-              '--source',
-              'winget',
-              '--scope',
-              'user',
-            ],
-            'Installing Python 3.12…',
-            progress,
-          );
-        } else {
-          await _brewInstall(['python'], progress);
-        }
       case Dependency.pymobiledevice3:
-        final py = await _python();
-        if (py == null) {
-          throw DependencyInstallException('Install Python 3 first.');
-        }
-        progress('Installing pymobiledevice3 with pip…', null);
-        final r = await _run(py.$1.first, [
-          ...py.$1.skip(1),
-          '-m',
-          'pip',
-          'install',
-          '--user',
-          '--upgrade',
-          'pymobiledevice3',
-        ], timeout: const Duration(minutes: 15));
-        if (r == null || r.exitCode != 0) {
-          throw DependencyInstallException(
-            'pip failed: ${_lastLine(r?.stderr ?? r?.stdout ?? 'not started')}',
-          );
-        }
+        await _installPymobiledevice3(progress);
     }
     tools.clearCache();
   }
@@ -409,6 +385,60 @@ class DependencyManager {
     );
   }
 
+  /// Installs pymobiledevice3 with uv into HK Tools' own folders: uv
+  /// downloads a private CPython 3.12 (the newest version that has prebuilt
+  /// Windows wheels for pymobiledevice3's lzfse / pylzss dependencies) and
+  /// puts `pymobiledevice3(.exe)` straight into [installDirectory]. The
+  /// system Python, if any, is neither used nor changed.
+  Future<void> _installPymobiledevice3(ProgressCallback progress) async {
+    final uv = await _ensureUv(progress);
+    final base = p.dirname(installDirectory);
+    progress(
+      'Installing pymobiledevice3 with a private Python 3.12 (first time: a '
+      'few minutes)…',
+      null,
+    );
+    final r = await _run(
+      uv,
+      ['tool', 'install', '--python', '3.12', '--force', 'pymobiledevice3'],
+      timeout: const Duration(minutes: 20),
+      environment: {
+        'UV_TOOL_BIN_DIR': installDirectory,
+        'UV_TOOL_DIR': p.join(base, 'uv', 'tools'),
+        'UV_PYTHON_INSTALL_DIR': p.join(base, 'uv', 'python'),
+        'UV_CACHE_DIR': p.join(base, 'uv', 'cache'),
+        'UV_MANAGED_PYTHON': '1',
+        'UV_NO_PROGRESS': '1',
+      },
+    );
+    if (r == null || r.exitCode != 0) {
+      throw DependencyInstallException(
+        'Installing pymobiledevice3 failed: '
+        '${_lastLine(r?.stderr ?? r?.stdout ?? 'uv did not start')}',
+      );
+    }
+  }
+
+  /// Path to uv, downloading the pinned release into [installDirectory] when
+  /// it isn't there yet.
+  Future<String> _ensureUv(ProgressCallback progress) async {
+    final exe = p.join(installDirectory, Platform.isWindows ? 'uv.exe' : 'uv');
+    if (File(exe).existsSync()) return exe;
+    final arm = Platform.isWindows
+        ? (Platform.environment['PROCESSOR_ARCHITECTURE'] ?? '')
+                  .toUpperCase() ==
+              'ARM64'
+        : (await _run('uname', ['-m']))?.stdout.toString().trim() == 'arm64';
+    final download = Platform.isWindows
+        ? (arm ? Downloads.uvWindowsArm64 : Downloads.uvWindowsX64)
+        : (arm ? Downloads.uvMacArm64 : Downloads.uvMacX64);
+    await downloadAndExtract(download, progress);
+    if (!File(exe).existsSync()) {
+      throw DependencyInstallException('uv was not found after unpacking.');
+    }
+    return exe;
+  }
+
   /// Downloads [d], verifies its SHA-256, then unpacks it into
   /// [installDirectory] with Windows' built-in `tar` (zip and tar.gz).
   @visibleForTesting
@@ -468,7 +498,10 @@ class DependencyManager {
         final ext = p.extension(name).toLowerCase();
         if (ext != '.exe' && ext != '.dll' && ext.isNotEmpty) continue;
         final target = renameExe?.call(name) ?? name;
-        await f.copy(p.join(dest.path, target));
+        final out = await f.copy(p.join(dest.path, target));
+        if (!Platform.isWindows && ext.isEmpty) {
+          await Process.run('chmod', ['+x', out.path]);
+        }
         copied++;
       }
       if (copied == 0) {
@@ -534,59 +567,18 @@ class DependencyManager {
     }
   }
 
-  /// A working Python 3 command and its version, avoiding the Windows Store
-  /// "python.exe" alias that only opens the Store.
-  Future<(List<String>, String)?> _python() async {
-    final candidates = Platform.isWindows
-        ? [
-            ['py', '-3'],
-            ['python'],
-            // Installed during this session: not on this process' PATH yet.
-            ..._windowsPythonExes().map((e) => [e]),
-          ]
-        : [
-            ['python3'],
-            ['/opt/homebrew/bin/python3'],
-            ['/usr/local/bin/python3'],
-            ['/usr/bin/python3'],
-          ];
-    for (final c in candidates) {
-      final r = await _run(c.first, [...c.skip(1), '--version']);
-      final out = '${r?.stdout ?? ''}${r?.stderr ?? ''}'.trim();
-      if (r?.exitCode == 0 && out.startsWith('Python 3')) return (c, out);
-    }
-    return null;
-  }
-
-  static List<String> _windowsPythonExes() {
-    final local = Platform.environment['LOCALAPPDATA'];
-    if (local == null) return const [];
-    final out = <String>[];
-    final launcher = p.join(local, 'Programs', 'Python', 'Launcher', 'py.exe');
-    if (File(launcher).existsSync()) out.add(launcher);
-    final root = Directory(p.join(local, 'Programs', 'Python'));
-    if (root.existsSync()) {
-      for (final d in root.listSync().whereType<Directory>()) {
-        final exe = p.join(d.path, 'python.exe');
-        if (p.basename(d.path).toLowerCase().startsWith('python3') &&
-            File(exe).existsSync()) {
-          out.add(exe);
-        }
-      }
-    }
-    return out;
-  }
-
   static Future<ProcessResult?> _run(
     String exe,
     List<String> args, {
     Duration timeout = const Duration(seconds: 20),
+    Map<String, String>? environment,
   }) async {
     try {
       return await Process.run(
         exe,
         args,
         runInShell: Platform.isWindows,
+        environment: environment,
       ).timeout(timeout);
     } on Object {
       return null;

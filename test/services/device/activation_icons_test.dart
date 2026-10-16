@@ -13,6 +13,26 @@ import 'package:http/testing.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
+  group('setup failures', () {
+    test('terminal prompts are explained', () {
+      expect(
+        describeSetupFailure(
+          'Exception: NoConsoleScreenBufferError: No Windows console found.',
+          command: 'activation',
+        ),
+        contains('Activation Lock is on'),
+      );
+      expect(
+        describeSetupFailure('EOFError', command: 'profile'),
+        contains('asked for input'),
+      );
+      expect(
+        describeSetupFailure('ERROR something else', command: 'apps'),
+        isNull,
+      );
+    });
+  });
+
   group('setup assistant config', () {
     test('kept groups are not skipped; plist round-trips', () {
       final skip = skipPanes(keep: {SetupPaneGroup.wifi});
@@ -108,6 +128,7 @@ echo "$@" >> "$(dirname "$0")/calls.txt"
 case "$1 $2" in
   "activation activate")
     [ -f "$(dirname "$0")/locked" ] && { echo "2026 host pymobiledevice3 ERROR Device is iCloud locked" >&2; exit 1; }
+    [ -f "$(dirname "$0")/prompt" ] && { echo "Activation Lock"; echo "Exception: NoConsoleScreenBufferError: No Windows console found. Are you running cmd.exe?" >&2; exit 1; }
     exit 0 ;;
   "profile cloud-configuration") cp "$3" "$(dirname "$0")/applied.plist" ;;
 esac
@@ -141,6 +162,17 @@ esac
       expect(
         calls[1],
         startsWith('profile erase-device --no-preserve-data-plan'),
+      );
+    });
+
+    test('Apple ID prompt during activation means Activation Lock', () async {
+      // What Windows shows when pymobiledevice3 tries to ask for the owner's
+      // Apple ID without a console.
+      File(p.join(dir.path, 'prompt')).writeAsStringSync('');
+      final svc = DeviceService(DeviceToolchain(customDirectory: dir.path));
+      expect(
+        () => svc.activate(device),
+        throwsA(predicate((e) => '$e'.contains('Activation Lock is on'))),
       );
     });
 

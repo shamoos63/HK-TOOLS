@@ -148,3 +148,32 @@ String friendlySetupError(String raw) {
   }
   return raw;
 }
+
+/// Explains a pymobiledevice3 failure from its whole output, or `null` when
+/// nothing specific is recognised.
+///
+/// pymobiledevice3 sometimes stops to ask a question in its terminal. HK
+/// Tools runs it without one, so that shows up as NoConsoleScreenBufferError
+/// (Windows) or an end-of-input / "Aborted!" error (macOS). During activation
+/// the only such question is Apple's request for the owner's Apple ID, i.e.
+/// the device is Activation Locked.
+String? describeSetupFailure(String output, {required String command}) {
+  final o = output.toLowerCase();
+  final askedQuestion =
+      o.contains('noconsolescreenbuffer') ||
+      o.contains('eoferror') ||
+      o.contains('aborted!') ||
+      o.contains('not a terminal') ||
+      o.contains('x-buddyml');
+  if (command == 'activation' &&
+      (askedQuestion ||
+          o.contains('icloud locked') ||
+          o.contains('activation lock'))) {
+    return friendlySetupError('Device is iCloud locked');
+  }
+  if (askedQuestion) {
+    return 'pymobiledevice3 asked for input that HK Tools cannot answer. Unlock '
+        'the device, tap Trust if asked, and try again.';
+  }
+  return null;
+}

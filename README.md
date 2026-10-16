@@ -247,8 +247,7 @@ what it needs and offers to install anything missing in one click:
 | libimobiledevice tools (**required**) | detection, info, files, backups, screen, console | [jrjr/libimobiledevice-windows](https://github.com/jrjr/libimobiledevice-windows) release zip, pinned SHA-256 |
 | idevicerestore / irecovery / ideviceinstaller | flashing, Recovery/DFU detection, app installs | your own build via `.github/workflows/windows-device-tools.yml` (set `windowsExtrasRepo`) |
 | ipatool | App Store + IPA library updates | official [ipatool](https://github.com/majd/ipatool) release, pinned SHA-256 (x64/ARM64) |
-| Python 3 | runs pymobiledevice3 | `winget install Python.Python.3.12` (per user) |
-| pymobiledevice3 | activation, skip setup, factory reset, icons; app install fallback | `pip install --user pymobiledevice3` |
+| pymobiledevice3 | activation, skip setup, factory reset, icons; app install fallback | [uv](https://github.com/astral-sh/uv) (pinned SHA-256) installs it with its **own Python 3.12** in `%LOCALAPPDATA%\HK Tools`; the system Python is never used (its lzfse / pylzss dependencies only have Windows builds up to Python 3.12) |
 
 Downloads are verified before anything is unpacked into
 `%LOCALAPPDATA%\HK Tools\tools` (no administrator rights needed), which the app
@@ -256,4 +255,8 @@ searches automatically. Without ideviceinstaller, app list/install/uninstall use
 pymobiledevice3. The Visual C++ runtime is bundled next to `hk_tools.exe` by the
 Windows build, so the app starts even on a clean PC.
 
-On macOS the same assistant uses Homebrew and pip.
+On macOS the same assistant uses Homebrew, and uv for pymobiledevice3.
+
+**Reduced visual effects** (Settings › Interface, on by default on Windows) replaces the
+background glows and live blur behind panels with solid panels. Some Windows graphics
+drivers render those effects as white, washed-out areas.

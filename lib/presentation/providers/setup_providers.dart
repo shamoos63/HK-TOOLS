@@ -39,8 +39,8 @@ class SetupController extends Notifier<Map<Dependency, InstallState>> {
 
   bool get busy => state.values.any((s) => s is Installing);
 
-  /// Installs [deps] one after another, in dependency order (Python before
-  /// pymobiledevice3), then re-checks everything.
+  /// Installs [deps] one after another, in declaration order, then
+  /// re-checks everything.
   Future<void> installAll(Iterable<Dependency> deps) async {
     final ordered = Dependency.values.where(deps.contains).toList();
     final manager = ref.read(dependencyManagerProvider);

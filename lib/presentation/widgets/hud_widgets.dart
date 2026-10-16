@@ -5,6 +5,21 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/hud_theme.dart';
 
+/// Turns off the GPU-heavy decoration (background glows, live blur behind
+/// glass panels) below it: Settings › Interface › Reduced visual effects.
+class HudEffects extends InheritedWidget {
+  const HudEffects({super.key, required this.reduced, required super.child});
+
+  final bool reduced;
+
+  static bool reducedOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<HudEffects>()?.reduced ??
+      false;
+
+  @override
+  bool updateShouldNotify(HudEffects old) => old.reduced != reduced;
+}
+
 /// App backdrop: OLED base, faint telemetry grid and two soft neon glows.
 class HudBackground extends StatelessWidget {
   const HudBackground({super.key, required this.child});
@@ -13,27 +28,30 @@ class HudBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final reduced = HudEffects.reducedOf(context);
     return DecoratedBox(
       decoration: const BoxDecoration(color: HudColors.background),
       child: Stack(
         children: [
           const Positioned.fill(child: CustomPaint(painter: _GridPainter())),
-          Positioned(
-            left: -220,
-            top: -260,
-            child: _Glow(
-              color: HudColors.cyan.withValues(alpha: 0.10),
-              size: 620,
+          if (!reduced)
+            Positioned(
+              left: -220,
+              top: -260,
+              child: _Glow(
+                color: HudColors.cyan.withValues(alpha: 0.10),
+                size: 620,
+              ),
             ),
-          ),
-          Positioned(
-            right: -260,
-            bottom: -300,
-            child: _Glow(
-              color: HudColors.purple.withValues(alpha: 0.14),
-              size: 720,
+          if (!reduced)
+            Positioned(
+              right: -260,
+              bottom: -300,
+              child: _Glow(
+                color: HudColors.purple.withValues(alpha: 0.14),
+                size: 720,
+              ),
             ),
-          ),
           Positioned.fill(child: child),
         ],
       ),
@@ -103,6 +121,21 @@ class GlassPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final border = borderColor ?? HudColors.glassBorder;
+    if (HudEffects.reducedOf(context)) {
+      // Solid panel: no backdrop blur, gradient or soft shadow.
+      return Container(
+        padding: padding,
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            (tint ?? Colors.white).withValues(alpha: 0.04),
+            HudColors.surface,
+          ),
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(color: border, width: 1),
+        ),
+        child: child,
+      );
+    }
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),

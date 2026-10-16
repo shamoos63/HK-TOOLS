@@ -19,6 +19,7 @@ class AppSettings {
     this.keepOldIpaVersions = false,
     this.checkToolsAtStartup = true,
     this.galleryPrivacyMode = false,
+    this.reducedEffects,
   });
 
   /// Repository folder downloads land in (e.g. `D:\Apple_Firmwares`).
@@ -62,6 +63,13 @@ class AppSettings {
   /// Gallery thumbnails are blurred until switched off.
   final bool galleryPrivacyMode;
 
+  /// No glows / live background blur (solid panels). `null` = platform
+  /// default: on for Windows, where some graphics drivers render those
+  /// effects as bright, washed-out areas.
+  final bool? reducedEffects;
+
+  bool get effectiveReducedEffects => reducedEffects ?? Platform.isWindows;
+
   /// Windows renders larger at the common 125–150% display scaling, so the
   /// UI starts a step smaller there.
   static double get defaultUiScale => Platform.isWindows ? 0.9 : 1.0;
@@ -85,6 +93,7 @@ class AppSettings {
     bool? keepOldIpaVersions,
     bool? checkToolsAtStartup,
     bool? galleryPrivacyMode,
+    bool? Function()? reducedEffects,
   }) => AppSettings(
     targetDirectory: targetDirectory ?? this.targetDirectory,
     tempDirectory: tempDirectory != null ? tempDirectory() : this.tempDirectory,
@@ -108,6 +117,9 @@ class AppSettings {
     keepOldIpaVersions: keepOldIpaVersions ?? this.keepOldIpaVersions,
     checkToolsAtStartup: checkToolsAtStartup ?? this.checkToolsAtStartup,
     galleryPrivacyMode: galleryPrivacyMode ?? this.galleryPrivacyMode,
+    reducedEffects: reducedEffects != null
+        ? reducedEffects()
+        : this.reducedEffects,
   );
 
   factory AppSettings.fromJson(
@@ -134,6 +146,7 @@ class AppSettings {
     keepOldIpaVersions: json['keepOldIpaVersions'] as bool? ?? false,
     checkToolsAtStartup: json['checkToolsAtStartup'] as bool? ?? true,
     galleryPrivacyMode: json['galleryPrivacyMode'] as bool? ?? false,
+    reducedEffects: json['reducedEffects'] as bool?,
   );
 
   Map<String, dynamic> toJson() => {
@@ -153,5 +166,6 @@ class AppSettings {
     'keepOldIpaVersions': keepOldIpaVersions,
     'checkToolsAtStartup': checkToolsAtStartup,
     'galleryPrivacyMode': galleryPrivacyMode,
+    'reducedEffects': reducedEffects,
   };
 }

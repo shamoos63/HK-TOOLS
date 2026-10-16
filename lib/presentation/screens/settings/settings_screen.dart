@@ -49,6 +49,16 @@ class SettingsScreen extends ConsumerWidget {
               onChanged: (v) =>
                   update((x) => x.copyWith(uiScale: () => v / 100)),
             ),
+            _SwitchRow(
+              label: 'Reduced visual effects',
+              help:
+                  'Solid panels without background glows or live blur. Use it if parts '
+                  'of the window look white or washed out (some graphics drivers), '
+                  'or to save battery. On by default on Windows.',
+              value: s.effectiveReducedEffects,
+              onChanged: (v) =>
+                  update((x) => x.copyWith(reducedEffects: () => v)),
+            ),
           ],
         ),
         _Section(

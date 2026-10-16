@@ -30,6 +30,8 @@ Future<void> initWindowChrome() async {
   // Smallest usable window (logical px). window_manager answers
   // WM_GETMINMAXINFO itself, so the limit has to be set here.
   await windowManager.setMinimumSize(const Size(960, 600));
+  // Opaque window: nothing from the desktop can show through.
+  await windowManager.setBackgroundColor(HudColors.background);
 }
 
 Future<void> _toggleMaximize() async {
