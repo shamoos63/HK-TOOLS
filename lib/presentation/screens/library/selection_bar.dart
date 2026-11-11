@@ -7,6 +7,7 @@ import '../../providers/catalog_providers.dart';
 import '../../providers/ui_providers.dart';
 import '../../widgets/download_feedback.dart';
 import '../../widgets/hud_widgets.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Floating bar summarising ticked payloads, with dedupe savings.
 class SelectionBar extends ConsumerWidget {
@@ -41,44 +42,40 @@ class SelectionBar extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           child: Row(
             children: [
-              const Icon(
-                Icons.checklist_rounded,
-                color: HudColors.cyan,
-                size: 20,
-              ),
+              Icon(Icons.checklist_rounded, color: HudColors.cyan, size: 20),
               const SizedBox(width: 12),
               Text(
-                '${groups.length} payload${groups.length == 1 ? '' : 's'}',
+                trf('{0} payload{1}', [
+                  groups.length,
+                  groups.length == 1 ? '' : 's',
+                ]),
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               const SizedBox(width: 14),
               Text(formatBytes(total), style: HudTheme.telemetry(size: 13)),
               const SizedBox(width: 14),
               Text(
-                '$devices device targets',
-                style: const TextStyle(
-                  color: HudColors.textMuted,
-                  fontSize: 12,
-                ),
+                trf('{0} device targets', [devices]),
+                style: TextStyle(color: HudColors.textMuted, fontSize: 12),
               ),
               if (saved > 0) ...[
                 const SizedBox(width: 14),
                 HudPill(
-                  'DEDUPE SAVES ${formatBytes(saved, decimals: 1)}',
+                  trf('DEDUPE SAVES {0}', [formatBytes(saved, decimals: 1)]),
                   color: HudColors.purple,
                   icon: Icons.compress_rounded,
                 ),
               ],
               const Spacer(),
               NeonButton(
-                label: 'Clear',
+                label: tr('Clear'),
                 variant: NeonVariant.ghost,
                 compact: true,
                 onPressed: ref.read(selectionProvider.notifier).clear,
               ),
               const SizedBox(width: 10),
               NeonButton(
-                label: 'Queue ${groups.length}',
+                label: trf('Queue {0}', [groups.length]),
                 icon: Icons.download_for_offline_rounded,
                 onPressed: groups.isEmpty
                     ? null
@@ -94,10 +91,13 @@ class SelectionBar extends ConsumerWidget {
                         messenger.showSnackBar(
                           SnackBar(
                             content: Text(
-                              'Queued ${tasks.length} payload${tasks.length == 1 ? '' : 's'}',
+                              trf('Queued {0} payload{1}', [
+                                tasks.length,
+                                tasks.length == 1 ? '' : 's',
+                              ]),
                             ),
                             action: SnackBarAction(
-                              label: 'VIEW',
+                              label: tr('VIEW'),
                               onPressed: () => ref
                                   .read(sectionProvider.notifier)
                                   .set(AppSection.queue),

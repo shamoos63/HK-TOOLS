@@ -8,10 +8,22 @@ import '../providers/download_providers.dart';
 import '../providers/ui_providers.dart';
 import '../widgets/hud_widgets.dart';
 import 'window_chrome.dart';
+import '../../core/l10n/l10n.dart';
 
 /// Universal search with filter tags + live telemetry badges.
 /// Sections where the firmware search bar is hidden.
-const hideSearchIn = {AppSection.devices, AppSection.appStore};
+const hideSearchIn = {
+  AppSection.devices,
+  AppSection.appStore,
+  AppSection.whatsapp,
+};
+
+/// Sections that show the download / signing status badges.
+const _showBadgesIn = {
+  AppSection.library,
+  AppSection.queue,
+  AppSection.repository,
+};
 
 class HudHeader extends ConsumerStatefulWidget {
   const HudHeader({super.key, required this.searchFocus});
@@ -73,6 +85,11 @@ class _HudHeaderState extends ConsumerState<HudHeader> {
     // The firmware search only applies to catalog sections.
     final section = ref.watch(sectionProvider);
     final showSearch = !hideSearchIn.contains(section);
+    final showBadges = _showBadgesIn.contains(section);
+    if (!showSearch && !showBadges) {
+      // Just room for the window buttons / drag area.
+      return SizedBox(height: useCustomWindowChrome ? 38 : 14);
+    }
 
     return Padding(
       // Leave room for the window buttons in the top-right corner (Windows).
@@ -89,7 +106,9 @@ class _HudHeaderState extends ConsumerState<HudHeader> {
                   GlassPanel(
                     padding: EdgeInsets.zero,
                     radius: 12,
-                    glow: widget.searchFocus.hasFocus,
+                    borderColor: widget.searchFocus.hasFocus
+                        ? HudColors.cyan.withValues(alpha: 0.6)
+                        : null,
                     child: TextField(
                       controller: _controller,
                       focusNode: widget.searchFocus,
@@ -98,15 +117,18 @@ class _HudHeaderState extends ConsumerState<HudHeader> {
                       cursorColor: HudColors.cyan,
                       decoration: InputDecoration(
                         border: InputBorder.none,
+                        filled: false,
                         contentPadding: const EdgeInsets.symmetric(
                           vertical: 14,
                         ),
-                        prefixIcon: const Icon(
+                        prefixIcon: Icon(
                           Icons.search_rounded,
-                          color: HudColors.cyan,
+                          color: HudColors.textMuted,
                           size: 20,
                         ),
-                        hintText: 'Search devices, models, versions, builds — "iPhone 15 Pro", "A2442", "iOS 18.0.1", "22A3354"',
+                        hintText: tr(
+                          'Search devices, models, versions, builds — "iPhone 15 Pro", "A2442", "iOS 18.0.1", "22A3354"',
+                        ),
                         hintStyle: TextStyle(
                           color: HudColors.textMuted.withValues(alpha: 0.8),
                           fontSize: 13,
@@ -155,8 +177,8 @@ class _HudHeaderState extends ConsumerState<HudHeader> {
                 ],
               ),
             ),
-          if (showSearch) const SizedBox(width: 18),
-          const _TelemetryBadges(),
+          if (showSearch && showBadges) const SizedBox(width: 18),
+          if (showBadges) const _TelemetryBadges(),
         ],
       ),
     );
@@ -185,13 +207,10 @@ class _TagChip extends StatelessWidget {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(20),
             color: active
-                ? HudColors.cyan.withValues(alpha: 0.12)
-                : Colors.white.withValues(alpha: 0.03),
-            border: Border.all(
-              color: color.withValues(alpha: active ? 0.6 : 0.25),
-            ),
+                ? HudColors.cyan.withValues(alpha: 0.18)
+                : HudColors.overlay.withValues(alpha: 0.05),
           ),
           child: Text(tag, style: HudTheme.telemetry(size: 11, color: color)),
         ),
@@ -215,23 +234,28 @@ class _TelemetryBadges extends ConsumerWidget {
     return Row(
       children: [
         _Badge(
-          label: 'Throughput',
+          label: tr('Speed'),
           value: formatRate(speed),
           icon: Icons.south_rounded,
           color: speed > 0 ? HudColors.cyan : HudColors.textMuted,
         ),
         const SizedBox(width: 10),
         _Badge(
-          label: 'Queue',
-          value: '${telemetry?.active ?? 0} ▸ ${telemetry?.queued ?? 0}',
+          label: tr('Queue'),
+          value: trf('{0} + {1} queued', [
+            telemetry?.active ?? 0,
+            telemetry?.queued ?? 0,
+          ]),
           icon: Icons.layers_rounded,
           color: HudColors.purple,
           onTap: () => ref.read(sectionProvider.notifier).set(AppSection.queue),
         ),
         const SizedBox(width: 10),
         _Badge(
-          label: 'Apple signing',
-          value: syncing ? 'SCANNING' : '${index.signedPayloadCount} LIVE',
+          label: tr('Apple signing'),
+          value: syncing
+              ? tr('Checking…')
+              : trf('{0} signed', [index.signedPayloadCount]),
           leading: PulseDot(
             color: syncing ? HudColors.warning : HudColors.success,
             size: 7,
@@ -275,7 +299,7 @@ class _Badge extends StatelessWidget {
         child: GlassPanel(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           radius: 12,
-          borderColor: color.withValues(alpha: 0.35),
+
           child: SizedBox(
             width: 132,
             child: Column(

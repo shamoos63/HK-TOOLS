@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/hud_theme.dart';
 import '../../../domain/entities/ios_device.dart';
-import '../../providers/catalog_providers.dart';
 import '../../providers/device_providers.dart';
 import '../../providers/ui_providers.dart';
 import '../../widgets/hud_widgets.dart';
@@ -13,6 +12,7 @@ import 'apps_tab.dart';
 import 'backup_tab.dart';
 import 'console_tab.dart';
 import 'contacts_tab.dart';
+import 'device_home.dart';
 import 'device_widgets.dart';
 import 'files_tab.dart';
 import 'gallery_tab.dart';
@@ -20,42 +20,71 @@ import 'overview_tab.dart';
 import 'restore_tab.dart';
 import 'screen_tab.dart';
 import 'tools_tab.dart';
+import '../../../core/l10n/l10n.dart';
 
+/// "My Device": what the app opens on. Waits for a device, then shows it
+/// (photo, model, iOS, battery, storage) with everything you can do to it
+/// below.
 class DevicesScreen extends ConsumerWidget {
   const DevicesScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(devicesProvider);
-    final restoring = ref.watch(restoreProvider.select((s) => s.running));
+    // Running, or finished and not yet dismissed: the result must stay
+    // visible even if the device has not come back.
+    final restoring = ref.watch(
+      restoreProvider.select((s) => s.status != JobStatus.idle),
+    );
     final active = ref.watch(activeDeviceProvider);
 
     if (state.toolsMissing) return const _ToolsMissing();
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 6, 24, 20),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(width: 270, child: _DeviceList(state: state)),
-          const SizedBox(width: 16),
-          Expanded(
-            child: active != null
-                ? _DeviceDetail(device: active)
-                : restoring
-                ? const RestoreTab(device: null)
-                : const GlassPanel(
-                    child: EmptyState(
-                      icon: Icons.phone_iphone_rounded,
-                      title: 'No device connected',
-                      message:
-                          'Connect an iPhone or iPad with a USB cable. Devices in '
-                          'Recovery or DFU mode appear here too, ready to flash.',
-                    ),
-                  ),
+    final tab = ref.watch(deviceTabProvider);
+    final Widget body;
+    if (active != null) {
+      body = Padding(
+        key: const ValueKey('device'),
+        padding: const EdgeInsets.fromLTRB(24, 4, 24, 20),
+        child: LayoutBuilder(
+          builder: (context, c) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Full card on Overview; a slim strip on the other features
+              // (and in short windows) so their lists get the room.
+              AnimatedSize(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: DeviceHero(
+                  device: active,
+                  devices: state.devices,
+                  compact: tab != DeviceTab.overview || c.maxHeight < 620,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(child: _DeviceDetail(device: active)),
+            ],
           ),
-        ],
-      ),
+        ),
+      );
+    } else if (restoring) {
+      // The device drops off the bus while it reboots into restore mode.
+      body = const Padding(
+        key: ValueKey('restoring'),
+        padding: EdgeInsets.fromLTRB(24, 4, 24, 20),
+        child: RestoreTab(device: null),
+      );
+    } else {
+      body = WaitingForDevice(
+        key: const ValueKey('waiting'),
+        polling: state.polling,
+      );
+    }
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      switchInCurve: Curves.easeOutCubic,
+      child: body,
     );
   }
 }
@@ -78,181 +107,6 @@ Color modeColor(DeviceMode m) => switch (m) {
   DeviceMode.unknown => HudColors.textMuted,
 };
 
-class _DeviceList extends ConsumerWidget {
-  const _DeviceList({required this.state});
-
-  final DevicesState state;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final active = ref.watch(activeDeviceProvider);
-    final index = ref.watch(catalogIndexProvider);
-    return GlassPanel(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              PulseDot(
-                color: state.polling ? HudColors.success : HudColors.warning,
-                size: 6,
-                active: state.polling,
-              ),
-              const SizedBox(width: 6),
-              const Expanded(child: HudLabel('Connected devices')),
-              Text(
-                '${state.devices.length}',
-                style: HudTheme.telemetry(size: 12),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: state.devices.isEmpty
-                ? Center(
-                    child: Text(
-                      state.polling
-                          ? 'Waiting for a device…'
-                          : 'Detection paused while flashing',
-                      style: const TextStyle(
-                        color: HudColors.textMuted,
-                        fontSize: 12.5,
-                      ),
-                    ),
-                  )
-                : ListView(
-                    children: [
-                      for (final d in state.devices)
-                        _DeviceTile(
-                          device: d,
-                          model: d.productType == null
-                              ? null
-                              : index.displayName(d.productType!),
-                          selected: d.id == active?.id,
-                          onTap: () => ref
-                              .read(activeDeviceIdProvider.notifier)
-                              .set(d.id),
-                        ),
-                    ],
-                  ),
-          ),
-          if (!state.polling)
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text(
-                'Device detection is paused during a firmware restore.',
-                style: TextStyle(color: HudColors.warning, fontSize: 11.5),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DeviceTile extends StatelessWidget {
-  const _DeviceTile({
-    required this.device,
-    required this.model,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final ConnectedDevice device;
-  final String? model;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final d = device;
-    final color = modeColor(d.mode);
-    final subtitle = [
-      if (model != null && model != d.displayName) model!,
-      if (d.info?.productVersion != null) 'iOS ${d.info!.productVersion}',
-    ].join(' · ');
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.all(11),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            color: selected
-                ? HudColors.cyan.withValues(alpha: 0.09)
-                : Colors.white.withValues(alpha: 0.03),
-            border: Border.all(
-              color: selected
-                  ? HudColors.cyan.withValues(alpha: 0.4)
-                  : Colors.white.withValues(alpha: 0.06),
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(deviceIcon(d.productType), size: 28, color: color),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      d.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13.5,
-                      ),
-                    ),
-                    if (subtitle.isNotEmpty)
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: HudColors.textMuted,
-                          fontSize: 11.5,
-                        ),
-                      ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 5,
-                      runSpacing: 4,
-                      children: [
-                        HudPill(d.mode.label, color: color),
-                        HudPill(
-                          d.connection == DeviceConnection.usb
-                              ? 'USB'
-                              : 'Wi-Fi',
-                          color: HudColors.textMuted,
-                          icon: d.connection == DeviceConnection.usb
-                              ? Icons.usb_rounded
-                              : Icons.wifi_rounded,
-                        ),
-                        if (d.mode.isBooted && d.pairState != PairState.paired)
-                          HudPill(switch (d.pairState) {
-                            PairState.pendingTrust => 'Tap Trust',
-                            PairState.locked => 'Unlock',
-                            PairState.denied => 'Not trusted',
-                            _ => 'Not paired',
-                          }, color: HudColors.warning),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _DeviceDetail extends ConsumerWidget {
   const _DeviceDetail({required this.device});
 
@@ -268,18 +122,21 @@ class _DeviceDetail extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          children: [
-            for (final t in DeviceTab.values)
-              HudChipTab(
-                label: t.label,
-                active: t == tab,
-                enabled: enabled(t),
-                onTap: () => ref.read(deviceTabProvider.notifier).set(t),
-              ),
-          ],
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final t in DeviceTab.values)
+                _FeatureTab(
+                  tab: t,
+                  active: t == tab,
+                  enabled: enabled(t),
+                  onTap: () => ref.read(deviceTabProvider.notifier).set(t),
+                ),
+            ],
+          ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 14),
         Expanded(
           child: KeyedSubtree(
             key: ValueKey('${device.id}/${tab.name}'),
@@ -298,6 +155,103 @@ class _DeviceDetail extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+IconData _tabIcon(DeviceTab t) => switch (t) {
+  DeviceTab.overview => Icons.info_outline_rounded,
+  DeviceTab.apps => Icons.apps_rounded,
+  DeviceTab.files => Icons.folder_rounded,
+  DeviceTab.gallery => Icons.photo_library_rounded,
+  DeviceTab.contacts => Icons.contacts_rounded,
+  DeviceTab.screen => Icons.screenshot_monitor_rounded,
+  DeviceTab.console => Icons.subject_rounded,
+  DeviceTab.backup => Icons.backup_rounded,
+  DeviceTab.tools => Icons.handyman_rounded,
+  DeviceTab.restore => Icons.system_update_rounded,
+};
+
+/// One feature in the strip under the device: icon above a short label.
+class _FeatureTab extends StatefulWidget {
+  const _FeatureTab({
+    required this.tab,
+    required this.active,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final DeviceTab tab;
+  final bool active;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  State<_FeatureTab> createState() => _FeatureTabState();
+}
+
+class _FeatureTabState extends State<_FeatureTab> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = widget.active;
+    final color = !widget.enabled
+        ? HudColors.textMuted.withValues(alpha: 0.35)
+        : active
+        ? HudColors.cyan
+        : _hover
+        ? HudColors.textPrimary
+        : HudColors.textMuted;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Tooltip(
+        message: widget.enabled ? '' : tr('Needs a trusted, unlocked device'),
+        child: MouseRegion(
+          cursor: widget.enabled
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          child: GestureDetector(
+            onTap: widget.enabled ? widget.onTap : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              width: 92,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: active
+                    ? HudColors.cyan.withValues(alpha: 0.14)
+                    : _hover && widget.enabled
+                    ? HudColors.overlay.withValues(alpha: 0.05)
+                    : HudColors.surface,
+                border: Border.all(
+                  color: active
+                      ? HudColors.cyan.withValues(alpha: 0.45)
+                      : HudColors.glassBorder,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Icon(_tabIcon(widget.tab), size: 20, color: color),
+                  const SizedBox(height: 5),
+                  Text(
+                    widget.tab.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                      color: active ? HudColors.textPrimary : color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -332,14 +286,15 @@ class _ToolsMissing extends ConsumerWidget {
                   color: HudColors.cyan.withValues(alpha: 0.6),
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  'Device tools not found',
+                Text(
+                  tr('Device tools not found'),
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'The Devices section drives iPhones and iPads through the '
-                  'open-source libimobiledevice tools.',
+                Text(
+                  tr(
+                    'The Devices section drives iPhones and iPads through the open-source libimobiledevice tools.',
+                  ),
                   textAlign: TextAlign.center,
                   style: TextStyle(color: HudColors.textMuted, fontSize: 13),
                 ),
@@ -357,7 +312,7 @@ class _ToolsMissing extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     NeonButton(
-                      label: 'Open Settings',
+                      label: tr('Open Settings'),
                       icon: Icons.tune_rounded,
                       onPressed: () => ref
                           .read(sectionProvider.notifier)
@@ -365,7 +320,7 @@ class _ToolsMissing extends ConsumerWidget {
                     ),
                     const SizedBox(width: 10),
                     NeonButton(
-                      label: 'Check again',
+                      label: tr('Check again'),
                       icon: Icons.refresh_rounded,
                       variant: NeonVariant.ghost,
                       onPressed: () => ref.invalidate(deviceToolchainProvider),
@@ -391,20 +346,24 @@ class TrustHint extends StatelessWidget {
   Widget build(BuildContext context) {
     final (title, msg) = switch (device.pairState) {
       PairState.pendingTrust => (
-        'Tap "Trust" on the device',
-        'A "Trust This Computer?" prompt is showing. Accept it and enter the passcode.',
+        tr('Tap "Trust" on the device'),
+        tr(
+          'A "Trust This Computer?" prompt is showing. Accept it and enter the passcode.',
+        ),
       ),
       PairState.locked => (
-        'Unlock the device',
-        'The device is locked with a passcode. Unlock it so it can pair with this computer.',
+        tr('Unlock the device'),
+        tr(
+          'The device is locked with a passcode. Unlock it so it can pair with this computer.',
+        ),
       ),
       PairState.denied => (
-        'This computer is not trusted',
-        'Unplug and reconnect the device, then tap "Trust".',
+        tr('This computer is not trusted'),
+        tr('Unplug and reconnect the device, then tap "Trust".'),
       ),
       _ => (
-        'Not paired',
-        device.pairError ?? 'Use "Pair" in the Overview tab.',
+        tr('Not paired'),
+        device.pairError ?? tr('Use "Pair" in the Overview tab.'),
       ),
     };
     return DeviceCard(
@@ -412,7 +371,7 @@ class TrustHint extends StatelessWidget {
       icon: Icons.lock_outline_rounded,
       child: Text(
         msg,
-        style: const TextStyle(color: HudColors.textMuted, fontSize: 13),
+        style: TextStyle(color: HudColors.textMuted, fontSize: 13),
       ),
     );
   }

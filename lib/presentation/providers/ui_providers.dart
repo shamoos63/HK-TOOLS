@@ -3,20 +3,43 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/platform_type.dart';
 import 'core_providers.dart';
+import '../../core/l10n/l10n.dart';
 
+/// Sidebar groups, in display order.
+enum SectionGroup {
+  device('Device'),
+  firmware('Firmware'),
+  apps('Apps'),
+  app('');
+
+  const SectionGroup(this._label);
+
+  final String _label;
+
+  /// In the interface language.
+  String get label => tr(_label);
+}
+
+/// App sections in sidebar order. The connected device comes first: it is
+/// what the app opens on.
 enum AppSection {
-  library('Library', Icons.grid_view_rounded),
-  queue('Downloads', Icons.downloading_rounded),
-  repository('Repository', Icons.storage_rounded),
-  devices('Devices', Icons.phone_iphone_rounded),
-  appStore('App Store', Icons.storefront_rounded),
-  ipaLibrary('IPA Library', Icons.inventory_2_rounded),
-  settings('Settings', Icons.tune_rounded);
+  devices('My Device', Icons.phone_iphone_rounded, SectionGroup.device),
+  whatsapp('WhatsApp', Icons.chat_rounded, SectionGroup.device),
+  library('IPSW Library', Icons.grid_view_rounded, SectionGroup.firmware),
+  queue('Downloads', Icons.downloading_rounded, SectionGroup.firmware),
+  repository('Repository', Icons.storage_rounded, SectionGroup.firmware),
+  appStore('App Store', Icons.storefront_rounded, SectionGroup.apps),
+  ipaLibrary('IPA Library', Icons.inventory_2_rounded, SectionGroup.apps),
+  settings('Settings', Icons.tune_rounded, SectionGroup.app);
 
-  const AppSection(this.label, this.icon);
+  const AppSection(this._label, this.icon, this.group);
 
-  final String label;
+  final String _label;
+
+  /// In the interface language.
+  String get label => tr(_label);
   final IconData icon;
+  final SectionGroup group;
 }
 
 /// Dev launch options, e.g. `--dart-define=HK_START_SECTION=repository`
@@ -28,7 +51,7 @@ final sectionProvider =
     NotifierProvider<ValueController<AppSection>, AppSection>(
       () => ValueController(
         AppSection.values.where((s) => s.name == _startSection).firstOrNull ??
-            AppSection.library,
+            AppSection.devices,
       ),
     );
 

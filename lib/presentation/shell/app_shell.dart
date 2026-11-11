@@ -9,6 +9,7 @@ import '../providers/ui_providers.dart';
 import '../screens/appstore/app_store_screen.dart';
 import '../screens/devices/devices_screen.dart';
 import '../screens/ipa_library/ipa_library_screen.dart';
+import '../screens/whatsapp/whatsapp_screen.dart';
 import '../screens/library/library_screen.dart';
 import '../screens/queue/queue_screen.dart';
 import '../screens/repository/repository_screen.dart';
@@ -58,9 +59,9 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyF, meta: true):
+        SingleActivator(LogicalKeyboardKey.keyF, meta: true):
             _searchFocus.requestFocus,
-        const SingleActivator(LogicalKeyboardKey.keyF, control: true):
+        SingleActivator(LogicalKeyboardKey.keyF, control: true):
             _searchFocus.requestFocus,
       },
       child: Focus(
@@ -70,7 +71,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           body: HudBackground(
             child: Row(
               children: [
-                const Sidebar(),
+                Sidebar(),
                 Expanded(
                   child: Column(
                     children: [
@@ -82,7 +83,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                             child: HudHeader(searchFocus: _searchFocus),
                           ),
                           if (useCustomWindowChrome)
-                            const Positioned(
+                            Positioned(
                               top: 0,
                               right: 0,
                               child: WindowControls(),
@@ -91,13 +92,13 @@ class _AppShellState extends ConsumerState<AppShell> {
                       ),
                       Expanded(
                         child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 260),
+                          duration: Duration(milliseconds: 260),
                           switchInCurve: Curves.easeOutCubic,
                           transitionBuilder: (child, anim) => FadeTransition(
                             opacity: anim,
                             child: SlideTransition(
                               position: Tween(
-                                begin: const Offset(0.015, 0),
+                                begin: Offset(0.015, 0),
                                 end: Offset.zero,
                               ).animate(anim),
                               child: child,
@@ -106,12 +107,13 @@ class _AppShellState extends ConsumerState<AppShell> {
                           child: KeyedSubtree(
                             key: ValueKey(section),
                             child: switch (section) {
-                              AppSection.library => const LibraryScreen(),
-                              AppSection.queue => const QueueScreen(),
+                              AppSection.library => LibraryScreen(),
+                              AppSection.queue => QueueScreen(),
                               AppSection.repository => const RepositoryScreen(),
                               AppSection.devices => const DevicesScreen(),
                               AppSection.appStore => const AppStoreScreen(),
                               AppSection.ipaLibrary => const IpaLibraryScreen(),
+                              AppSection.whatsapp => const WhatsAppScreen(),
                               AppSection.settings => const SettingsScreen(),
                             },
                           ),

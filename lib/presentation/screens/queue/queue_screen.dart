@@ -12,6 +12,7 @@ import '../../providers/core_providers.dart';
 import '../../providers/download_providers.dart';
 import '../../providers/ui_providers.dart';
 import '../../widgets/hud_widgets.dart';
+import '../../../core/l10n/l10n.dart';
 
 class QueueScreen extends ConsumerWidget {
   const QueueScreen({super.key});
@@ -59,7 +60,7 @@ class QueueScreen extends ConsumerWidget {
                 (t) => t.status.isActive || t.status == DownloadStatus.queued,
               ))
                 NeonButton(
-                  label: 'Pause all',
+                  label: tr('Pause all'),
                   icon: Icons.pause_rounded,
                   variant: NeonVariant.ghost,
                   compact: true,
@@ -72,7 +73,7 @@ class QueueScreen extends ConsumerWidget {
               if (tasks.any((t) => t.status == DownloadStatus.paused)) ...[
                 const SizedBox(width: 8),
                 NeonButton(
-                  label: 'Resume all',
+                  label: tr('Resume all'),
                   icon: Icons.play_arrow_rounded,
                   variant: NeonVariant.ghost,
                   compact: true,
@@ -92,11 +93,12 @@ class QueueScreen extends ConsumerWidget {
                     child: EmptyState(
                       icon: Icons.download_done_rounded,
                       title: tasks.isEmpty
-                          ? 'Queue is empty'
-                          : 'Nothing in this view',
+                          ? tr('Queue is empty')
+                          : tr('Nothing in this view'),
                       message: tasks.isEmpty
-                          ? 'Pick firmware in the Library and press GET or Queue. '
-                                'Shared payloads are only downloaded once.'
+                          ? tr(
+                              'Pick firmware in the Library and press GET or Queue. Shared payloads are only downloaded once.',
+                            )
                           : null,
                     ),
                   )
@@ -141,17 +143,17 @@ class _FilterChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           color: active
               ? HudColors.cyan.withValues(alpha: 0.12)
-              : Colors.white.withValues(alpha: 0.03),
+              : HudColors.overlay.withValues(alpha: 0.03),
           border: Border.all(
             color: active
                 ? HudColors.cyan.withValues(alpha: 0.5)
-                : Colors.white.withValues(alpha: 0.08),
+                : HudColors.overlay.withValues(alpha: 0.08),
           ),
         ),
         child: Row(
           children: [
             Text(
-              label[0].toUpperCase() + label.substring(1),
+              tr(label[0].toUpperCase() + label.substring(1)),
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
@@ -202,7 +204,7 @@ class _BandwidthPanel extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const HudLabel('Aggregate bandwidth'),
+                  HudLabel(tr('Aggregate bandwidth')),
                   const SizedBox(height: 6),
                   Text(
                     formatRate(t?.bytesPerSecond ?? 0),
@@ -215,22 +217,26 @@ class _BandwidthPanel extends ConsumerWidget {
             Expanded(child: Sparkline(values: t?.history ?? const [])),
             const SizedBox(width: 24),
             _Stat(
-              label: 'Active',
+              label: tr('Active'),
               value: '${t?.active ?? 0}',
               color: HudColors.cyan,
             ),
             _Stat(
-              label: 'Queued',
+              label: tr('Queued'),
               value: '${t?.queued ?? 0}',
               color: HudColors.purple,
             ),
-            _Stat(label: 'Stored', value: '$done', color: HudColors.success),
+            _Stat(
+              label: tr('Stored'),
+              value: '$done',
+              color: HudColors.success,
+            ),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const HudLabel('Speed cap'),
+                HudLabel(tr('Speed cap')),
                 const SizedBox(height: 4),
                 DropdownButton<int>(
                   value: _caps.contains(capMb) ? capMb : 0,
@@ -245,7 +251,7 @@ class _BandwidthPanel extends ConsumerWidget {
                     for (final c in _caps)
                       DropdownMenuItem(
                         value: c,
-                        child: Text(c == 0 ? 'Unlimited' : '$c MB/s'),
+                        child: Text(c == 0 ? tr('Unlimited') : '$c MB/s'),
                       ),
                   ],
                   onChanged: (v) => ref
@@ -359,7 +365,7 @@ class _TaskCard extends ConsumerWidget {
                           if (t.deviceIdentifiers.length > 1) ...[
                             const SizedBox(width: 6),
                             HudPill(
-                              'SHARED ×${t.deviceIdentifiers.length}',
+                              trf('SHARED ×{0}', [t.deviceIdentifiers.length]),
                               color: HudColors.purple,
                               icon: Icons.link_rounded,
                             ),
@@ -367,13 +373,13 @@ class _TaskCard extends ConsumerWidget {
                           if (t.linkRefreshCount > 0) ...[
                             const SizedBox(width: 6),
                             HudPill(
-                              'LINK ↻${t.linkRefreshCount}',
+                              trf('LINK ↻{0}', [t.linkRefreshCount]),
                               color: HudColors.warning,
                             ),
                           ],
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text(
                         t.fileName,
                         maxLines: 1,
@@ -383,14 +389,14 @@ class _TaskCard extends ConsumerWidget {
                           color: HudColors.textMuted,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: 2),
                       Text(
                         names.length <= 4
                             ? names.join(' · ')
                             : '${names.take(4).join(' · ')} · +${names.length - 4}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           color: HudColors.textPrimary,
                         ),
@@ -401,7 +407,7 @@ class _TaskCard extends ConsumerWidget {
                 ..._controls(t, actions, context),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             if (progress != null && progress.chunks.length > 1)
               _ThreadVisualizer(progress: progress)
             else
@@ -409,10 +415,10 @@ class _TaskCard extends ConsumerWidget {
                 value: t.status == DownloadStatus.completed ? 1 : fraction,
                 dimmed: !running,
                 colors: t.status == DownloadStatus.failed
-                    ? const [HudColors.danger, HudColors.purple]
+                    ? [HudColors.danger, HudColors.purple]
                     : t.status == DownloadStatus.completed
-                    ? const [HudColors.success, HudColors.cyan]
-                    : const [HudColors.cyan, HudColors.purple],
+                    ? [HudColors.success, HudColors.cyan]
+                    : [HudColors.cyan, HudColors.purple],
               ),
             const SizedBox(height: 8),
             DefaultTextStyle(
@@ -429,13 +435,20 @@ class _TaskCard extends ConsumerWidget {
                       style: HudTheme.telemetry(size: 11.5),
                     ),
                     _sep(),
-                    Text('ETA ${formatEta(progress.eta)}'),
+                    Text(trf('ETA {0}', [formatEta(progress.eta)])),
                     _sep(),
-                    Text('${progress.activeThreads}/${t.threadCount} threads'),
+                    Text(
+                      trf('{0}/{1} threads', [
+                        progress.activeThreads,
+                        t.threadCount,
+                      ]),
+                    ),
                   ],
                   if (t.speedLimitBytesPerSecond > 0) ...[
                     _sep(),
-                    Text('cap ${formatRate(t.speedLimitBytesPerSecond)}'),
+                    Text(
+                      trf('cap {0}', [formatRate(t.speedLimitBytesPerSecond)]),
+                    ),
                   ],
                   const Spacer(),
                   if (t.errorMessage != null)
@@ -450,7 +463,7 @@ class _TaskCard extends ConsumerWidget {
                       ),
                     )
                   else if (t.sha1sum != null)
-                    Text('SHA1 ${t.sha1sum!.substring(0, 12)}…'),
+                    Text(trf('SHA1 {0}…', [t.sha1sum!.substring(0, 12)])),
                 ],
               ),
             ),
@@ -460,7 +473,7 @@ class _TaskCard extends ConsumerWidget {
     );
   }
 
-  Widget _sep() => const Padding(
+  Widget _sep() => Padding(
     padding: EdgeInsets.symmetric(horizontal: 8),
     child: Text('│', style: TextStyle(color: HudColors.glassBorder)),
   );
@@ -474,38 +487,38 @@ class _TaskCard extends ConsumerWidget {
     return [
       HudIconButton(
         icon: Icons.keyboard_arrow_up_rounded,
-        tooltip: 'Move up',
+        tooltip: tr('Move up'),
         onPressed: isFirst ? null : () => actions.run((m) => m.moveUp(t.id)),
       ),
       HudIconButton(
         icon: Icons.keyboard_arrow_down_rounded,
-        tooltip: 'Move down',
+        tooltip: tr('Move down'),
         onPressed: isLast ? null : () => actions.run((m) => m.moveDown(t.id)),
       ),
       if (s.isActive || s == DownloadStatus.queued)
         HudIconButton(
           icon: Icons.pause_rounded,
-          tooltip: 'Pause',
+          tooltip: tr('Pause'),
           color: HudColors.warning,
           onPressed: () => actions.run((m) => m.pause(t.id)),
         ),
       if (s == DownloadStatus.paused)
         HudIconButton(
           icon: Icons.play_arrow_rounded,
-          tooltip: 'Resume',
+          tooltip: tr('Resume'),
           color: HudColors.cyan,
           onPressed: () => actions.run((m) => m.resume(t.id)),
         ),
       if (s == DownloadStatus.failed || s == DownloadStatus.cancelled) ...[
         HudIconButton(
           icon: Icons.replay_rounded,
-          tooltip: 'Retry',
+          tooltip: tr('Retry'),
           color: HudColors.cyan,
           onPressed: () => actions.run((m) => m.retry(t.id)),
         ),
         HudIconButton(
           icon: Icons.link_rounded,
-          tooltip: 'Refresh link from IPSW.me',
+          tooltip: tr('Refresh link from IPSW.me'),
           color: HudColors.warning,
           onPressed: () => actions.run((m) => m.refreshLink(t.id)),
         ),
@@ -514,7 +527,7 @@ class _TaskCard extends ConsumerWidget {
       if (s == DownloadStatus.completed)
         HudIconButton(
           icon: Icons.folder_open_rounded,
-          tooltip: 'Reveal in folder',
+          tooltip: tr('Reveal in folder'),
           onPressed: () => _reveal(t.targetPath),
         ),
       HudIconButton(
@@ -522,8 +535,8 @@ class _TaskCard extends ConsumerWidget {
             ? Icons.playlist_remove_rounded
             : Icons.close_rounded,
         tooltip: s == DownloadStatus.completed || s == DownloadStatus.cancelled
-            ? 'Remove from list (keeps file)'
-            : 'Cancel and delete partial data',
+            ? tr('Remove from list (keeps file)')
+            : tr('Cancel and delete partial data'),
         color: HudColors.danger.withValues(alpha: 0.8),
         onPressed: () => actions.run(
           (m) => m.cancel(
@@ -545,23 +558,26 @@ class _TaskCard extends ConsumerWidget {
   }
 
   static (String, Color) _status(DownloadTask t) => switch (t.status) {
-    DownloadStatus.queued => ('QUEUED', HudColors.purple),
-    DownloadStatus.connecting => ('CONNECTING', HudColors.cyan),
-    DownloadStatus.downloading => ('DOWNLOADING', HudColors.cyan),
-    DownloadStatus.refreshingLink => ('REFRESHING LINK', HudColors.warning),
-    DownloadStatus.paused => ('PAUSED', HudColors.warning),
-    DownloadStatus.verifying => ('VERIFYING SHA1', HudColors.cyan),
+    DownloadStatus.queued => (tr('QUEUED'), HudColors.purple),
+    DownloadStatus.connecting => (tr('CONNECTING'), HudColors.cyan),
+    DownloadStatus.downloading => (tr('DOWNLOADING'), HudColors.cyan),
+    DownloadStatus.refreshingLink => (tr('REFRESHING LINK'), HudColors.warning),
+    DownloadStatus.paused => (tr('PAUSED'), HudColors.warning),
+    DownloadStatus.verifying => (tr('VERIFYING SHA1'), HudColors.cyan),
     DownloadStatus.completed => switch (t.verification) {
-      VerificationState.passed => ('VERIFIED', HudColors.success),
-      VerificationState.pending => ('VERIFY PENDING', HudColors.warning),
-      VerificationState.unavailable => ('STORED · NO HASH', HudColors.success),
-      _ => ('STORED', HudColors.success),
+      VerificationState.passed => (tr('VERIFIED'), HudColors.success),
+      VerificationState.pending => (tr('VERIFY PENDING'), HudColors.warning),
+      VerificationState.unavailable => (
+        tr('STORED · NO HASH'),
+        HudColors.success,
+      ),
+      _ => (tr('STORED'), HudColors.success),
     },
     DownloadStatus.failed => (
       t.verification == VerificationState.failed ? 'HASH MISMATCH' : 'FAILED',
       HudColors.danger,
     ),
-    DownloadStatus.cancelled => ('CANCELLED', HudColors.textMuted),
+    DownloadStatus.cancelled => (tr('CANCELLED'), HudColors.textMuted),
   };
 }
 
@@ -574,7 +590,7 @@ class _SpeedCapMenu extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final capMb = task.speedLimitBytesPerSecond ~/ (1024 * 1024);
     return PopupMenuButton<int>(
-      tooltip: 'Per-download speed cap',
+      tooltip: tr('Per-download speed cap'),
       color: HudColors.surface,
       icon: Icon(
         Icons.speed_rounded,
@@ -628,14 +644,17 @@ class _ThreadVisualizer extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(right: 4),
                   child: Tooltip(
-                    message:
-                        'Thread ${c.index}: ${formatRate(c.bytesPerSecond)}\n'
-                        '${formatBytes(c.downloaded)} / ${formatBytes(c.length)}',
+                    message: trf('Thread {0}: {1}\n{2} / {3}', [
+                      c.index,
+                      formatRate(c.bytesPerSecond),
+                      formatBytes(c.downloaded),
+                      formatBytes(c.length),
+                    ]),
                     child: Container(
                       width: 26,
                       alignment: Alignment.bottomCenter,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.04),
+                        color: HudColors.overlay.withValues(alpha: 0.04),
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: FractionallySizedBox(
@@ -646,7 +665,7 @@ class _ThreadVisualizer extends StatelessWidget {
                         child: Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(2),
-                            gradient: const LinearGradient(
+                            gradient: LinearGradient(
                               begin: Alignment.bottomCenter,
                               end: Alignment.topCenter,
                               colors: [HudColors.purple, HudColors.cyan],
@@ -680,7 +699,7 @@ class _ChunkPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final total = progress.totalBytes;
     if (total <= 0) return;
-    final bg = Paint()..color = Colors.white.withValues(alpha: 0.06);
+    final bg = Paint()..color = HudColors.overlay.withValues(alpha: 0.06);
     canvas.drawRRect(
       RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(3)),
       bg,

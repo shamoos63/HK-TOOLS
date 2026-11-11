@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/hud_theme.dart';
 import '../../../core/utils/folder_access.dart';
 import '../../widgets/hud_widgets.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Glass card with a titled header used by every device tab.
 class DeviceCard extends StatelessWidget {
@@ -37,12 +38,12 @@ class DeviceCard extends StatelessWidget {
         Row(
           children: [
             Icon(icon, size: 16, color: HudColors.cyan),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Expanded(child: HudLabel(title, color: HudColors.textPrimary)),
             ?trailing,
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         fill ? Expanded(child: child) : child,
       ],
     ),
@@ -63,7 +64,7 @@ class InfoTable extends StatelessWidget {
       for (final (label, value) in rows)
         if (value != null && value.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3.5),
+            padding: EdgeInsets.symmetric(vertical: 3.5),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -71,7 +72,7 @@ class InfoTable extends StatelessWidget {
                   width: labelWidth,
                   child: Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: HudColors.textMuted,
                       fontSize: 12.5,
                     ),
@@ -79,7 +80,7 @@ class InfoTable extends StatelessWidget {
                 ),
                 Expanded(
                   child: Tooltip(
-                    message: 'Click to copy',
+                    message: tr('Click to copy'),
                     child: InkWell(
                       onTap: () => copyText(context, value),
                       child: Text(
@@ -115,23 +116,23 @@ class HudChipTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(right: 6, bottom: 6),
+    padding: EdgeInsets.only(right: 6, bottom: 6),
     child: MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       child: GestureDetector(
         onTap: enabled ? onTap : null,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          duration: Duration(milliseconds: 150),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(9),
             color: active
                 ? HudColors.cyan.withValues(alpha: 0.12)
-                : Colors.white.withValues(alpha: 0.03),
+                : HudColors.overlay.withValues(alpha: 0.03),
             border: Border.all(
               color: active
                   ? HudColors.cyan.withValues(alpha: 0.5)
-                  : Colors.white.withValues(alpha: 0.08),
+                  : HudColors.overlay.withValues(alpha: 0.08),
             ),
           ),
           child: Text(
@@ -161,24 +162,20 @@ class DeviceError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
+    padding: EdgeInsets.symmetric(vertical: 8),
     child: Row(
       children: [
-        const Icon(
-          Icons.error_outline_rounded,
-          size: 18,
-          color: HudColors.danger,
-        ),
-        const SizedBox(width: 10),
+        Icon(Icons.error_outline_rounded, size: 18, color: HudColors.danger),
+        SizedBox(width: 10),
         Expanded(
           child: SelectableText(
             '$error',
-            style: const TextStyle(color: HudColors.textMuted, fontSize: 12.5),
+            style: TextStyle(color: HudColors.textMuted, fontSize: 12.5),
           ),
         ),
         if (onRetry != null)
           NeonButton(
-            label: 'Retry',
+            label: tr('Retry'),
             icon: Icons.refresh_rounded,
             variant: NeonVariant.ghost,
             compact: true,
@@ -193,8 +190,8 @@ void copyText(BuildContext context, String value) {
   Clipboard.setData(ClipboardData(text: value));
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: Text('Copied $value'),
-      duration: const Duration(seconds: 1),
+      content: Text(trf('Copied {0}', [value])),
+      duration: Duration(seconds: 1),
     ),
   );
 }
@@ -252,7 +249,7 @@ Future<bool> confirmDialog(
                   : HudColors.glassBorder,
             ),
           ),
-          title: Text(title, style: const TextStyle(fontSize: 17)),
+          title: Text(title, style: TextStyle(fontSize: 17)),
           content: SizedBox(
             width: 460,
             child: Column(
@@ -261,25 +258,25 @@ Future<bool> confirmDialog(
               children: [
                 Text(
                   message,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: HudColors.textMuted,
                     fontSize: 13,
                     height: 1.45,
                   ),
                 ),
                 if (typeToConfirm != null) ...[
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   Text(
-                    'Type $typeToConfirm to confirm',
-                    style: const TextStyle(fontSize: 12.5),
+                    trf('Type {0} to confirm', [typeToConfirm]),
+                    style: TextStyle(fontSize: 12.5),
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   TextField(
                     controller: controller,
                     autofocus: true,
                     onChanged: (_) => setState(() {}),
                     style: HudTheme.telemetry(color: HudColors.textPrimary),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
                       border: OutlineInputBorder(),
                     ),
@@ -290,13 +287,13 @@ Future<bool> confirmDialog(
           ),
           actions: [
             NeonButton(
-              label: 'Cancel',
+              label: tr('Cancel'),
               variant: NeonVariant.ghost,
               compact: true,
               onPressed: () => Navigator.pop(ctx, false),
             ),
             NeonButton(
-              label: confirmLabel,
+              label: tr(confirmLabel),
               variant: danger ? NeonVariant.danger : NeonVariant.primary,
               compact: true,
               onPressed: armed ? () => Navigator.pop(ctx, true) : null,
@@ -326,7 +323,7 @@ Future<String?> promptText(
       backgroundColor: HudColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: HudColors.glassBorder),
+        side: BorderSide(color: HudColors.glassBorder),
       ),
       title: Text(title, style: const TextStyle(fontSize: 17)),
       content: SizedBox(
@@ -345,13 +342,13 @@ Future<String?> promptText(
       ),
       actions: [
         NeonButton(
-          label: 'Cancel',
+          label: tr('Cancel'),
           variant: NeonVariant.ghost,
           compact: true,
           onPressed: () => Navigator.pop(ctx),
         ),
         NeonButton(
-          label: confirmLabel,
+          label: tr(confirmLabel),
           compact: true,
           onPressed: () => Navigator.pop(ctx, controller.text),
         ),
@@ -384,13 +381,14 @@ class AppIcon extends StatelessWidget {
     required this.name,
     this.path,
     this.size = 36,
-    this.color = HudColors.cyan,
-  });
+    Color? color,
+  }) : _color = color;
 
   final String name;
   final String? path;
   final double size;
-  final Color color;
+  final Color? _color;
+  Color get color => _color ?? HudColors.cyan;
 
   @override
   Widget build(BuildContext context) {

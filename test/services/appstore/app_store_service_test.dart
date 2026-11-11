@@ -88,7 +88,9 @@ echo "$@" >> "$(dirname "$0")/calls.txt"
 case "$1 $2" in
   "auth login")
     echo '{"message":"preparing authentication; the first login may take a few minutes"}'
-    [ -f "$(dirname "$0")/slow" ] && sleep 5
+    # "slow": close stdio first so the reader hits EOF at once, then hang. The
+    # login's own timeout must end it; no orphaned child keeps the pipe open.
+    if [ -f "$(dirname "$0")/slow" ]; then exec 1>&- 2>&-; sleep 30; exit 0; fi
     echo '{"level":"debug","message":"logging in"}'
     case "$*" in
       *--auth-code\ 123456*) echo '{"name":"Hisham","email":"h@example.com","success":true}' ;;

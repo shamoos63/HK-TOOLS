@@ -11,6 +11,7 @@ import '../providers/ipa_library_providers.dart';
 import '../providers/ui_providers.dart';
 import '../widgets/hud_widgets.dart';
 import 'window_chrome.dart';
+import '../../core/l10n/l10n.dart';
 
 class Sidebar extends ConsumerWidget {
   const Sidebar({super.key});
@@ -35,30 +36,50 @@ class Sidebar extends ConsumerWidget {
     };
 
     return Container(
-      width: 236,
+      width: 232,
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.25),
-        border: const Border(right: BorderSide(color: HudColors.glassBorder)),
+        color: HudColors.sidebar,
+        border: BorderDirectional(
+          end: BorderSide(color: HudColors.glassBorder),
+        ),
       ),
-      padding: const EdgeInsets.fromLTRB(14, 22, 14, 16),
+      padding: const EdgeInsets.fromLTRB(12, 20, 12, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Windows: the logo area also moves the window.
           const WindowDragArea(child: _Logo()),
-          const SizedBox(height: 30),
-          const Padding(
-            padding: EdgeInsets.only(left: 10, bottom: 8),
-            child: HudLabel('Navigation'),
-          ),
-          for (final s in AppSection.values)
-            _NavItem(
-              section: s,
-              selected: s == section,
-              badge: badge(s),
-              onTap: () => ref.read(sectionProvider.notifier).set(s),
+          const SizedBox(height: 22),
+          Expanded(
+            child: ListView(
+              children: [
+                for (final g in SectionGroup.values) ...[
+                  if (g.label.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 14, 0, 6),
+                      child: Text(
+                        g.label,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: HudColors.textMuted,
+                        ),
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 14),
+                  for (final s in AppSection.values.where((s) => s.group == g))
+                    _NavItem(
+                      section: s,
+                      selected: s == section,
+                      badge: badge(s),
+                      onTap: () => ref.read(sectionProvider.notifier).set(s),
+                    ),
+                ],
+              ],
             ),
-          const Spacer(),
+          ),
+          const SizedBox(height: 12),
           const _CatalogStatus(),
           const _Credit(),
         ],
@@ -74,21 +95,11 @@ class _Logo extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(11),
-            boxShadow: [
-              BoxShadow(
-                color: HudColors.cyan.withValues(alpha: 0.30),
-                blurRadius: 18,
-                spreadRadius: -2,
-              ),
-            ],
-          ),
+        SizedBox(
+          width: 38,
+          height: 38,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(11),
+            borderRadius: BorderRadius.circular(10),
             child: Image.asset(
               Branding.logoMark,
               filterQuality: FilterQuality.medium,
@@ -100,32 +111,19 @@ class _Logo extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text.rich(
-                TextSpan(
-                  children: [
-                    const TextSpan(
-                      text: 'HK ',
-                      style: TextStyle(color: HudColors.cyan),
-                    ),
-                    TextSpan(
-                      text: 'Tools',
-                      style: TextStyle(
-                        color: HudColors.textPrimary.withValues(alpha: 0.95),
-                      ),
-                    ),
-                  ],
-                ),
+              Text(
+                Branding.appName,
                 maxLines: 1,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
                   fontSize: 15,
-                  letterSpacing: 0.4,
+                  color: HudColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 1),
               Text(
-                'v${Branding.version} // FIRMWARE OPS',
-                style: HudTheme.telemetry(size: 10, color: HudColors.textMuted),
+                trf('Version {0}', [Branding.version]),
+                style: TextStyle(fontSize: 11, color: HudColors.textMuted),
               ),
             ],
           ),
@@ -146,12 +144,12 @@ class _Credit extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.favorite_rounded, size: 12, color: HudColors.purple),
+              Icon(Icons.favorite_rounded, size: 12, color: HudColors.danger),
               SizedBox(width: 6),
               Text(
-                'Made by ${Branding.author}',
+                trf('Made by {0}', [Branding.author]),
                 style: TextStyle(fontSize: 11.5, color: HudColors.textMuted),
               ),
             ],
@@ -161,13 +159,13 @@ class _Credit extends StatelessWidget {
             children: [
               _TinyLink(
                 icon: Icons.send_rounded,
-                label: 'Telegram',
+                label: tr('Telegram'),
                 url: Branding.telegramUrl,
               ),
               const SizedBox(width: 14),
               _TinyLink(
                 icon: Icons.language_rounded,
-                label: 'Website',
+                label: tr('Website'),
                 url: Branding.websiteUrl,
               ),
             ],
@@ -200,7 +198,7 @@ class _TinyLink extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               label,
-              style: const TextStyle(fontSize: 11.5, color: HudColors.cyan),
+              style: TextStyle(fontSize: 11.5, color: HudColors.cyan),
             ),
           ],
         ),
@@ -233,7 +231,7 @@ class _NavItemState extends State<_NavItem> {
   Widget build(BuildContext context) {
     final selected = widget.selected;
     final color = selected
-        ? HudColors.cyan
+        ? HudColors.textPrimary
         : (_hover ? HudColors.textPrimary : HudColors.textMuted);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -243,46 +241,19 @@ class _NavItemState extends State<_NavItem> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          margin: const EdgeInsets.only(bottom: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          margin: const EdgeInsets.only(bottom: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(9),
             color: selected
-                ? HudColors.cyan.withValues(alpha: 0.09)
+                ? HudColors.cyan.withValues(alpha: 0.16)
                 : _hover
-                ? Colors.white.withValues(alpha: 0.04)
+                ? HudColors.overlay.withValues(alpha: 0.05)
                 : Colors.transparent,
-            border: Border.all(
-              color: selected
-                  ? HudColors.cyan.withValues(alpha: 0.35)
-                  : Colors.transparent,
-            ),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: HudColors.cyan.withValues(alpha: 0.15),
-                      blurRadius: 16,
-                      spreadRadius: -4,
-                    ),
-                  ]
-                : null,
           ),
           child: Row(
             children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: 3,
-                height: 16,
-                margin: const EdgeInsets.only(right: 10),
-                decoration: BoxDecoration(
-                  color: selected ? HudColors.cyan : Colors.transparent,
-                  borderRadius: BorderRadius.circular(2),
-                  boxShadow: selected
-                      ? [const BoxShadow(color: HudColors.cyan, blurRadius: 8)]
-                      : null,
-                ),
-              ),
-              Icon(widget.section.icon, size: 19, color: color),
+              Icon(widget.section.icon, size: 18, color: color),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -290,14 +261,27 @@ class _NavItemState extends State<_NavItem> {
                   style: TextStyle(
                     color: color,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    fontSize: 14,
+                    fontSize: 13.5,
                   ),
                 ),
               ),
               if (widget.badge != null)
-                Text(
-                  widget.badge!,
-                  style: HudTheme.telemetry(size: 11, color: color),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: HudColors.overlay.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    widget.badge!,
+                    style: HudTheme.telemetry(
+                      size: 11,
+                      color: HudColors.textMuted,
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -317,12 +301,12 @@ class _CatalogStatus extends ConsumerWidget {
     final syncing = state?.syncing ?? false;
     final lastSync = state?.lastSync;
     final subtitle = catalog.hasError && state == null
-        ? 'Offline: catalog unavailable'
+        ? tr('Offline: catalog unavailable')
         : syncing
-        ? 'Indexing ${state!.syncDone}/${state.syncTotal} devices'
+        ? trf('Indexing {0}/{1} devices', [state!.syncDone, state.syncTotal])
         : lastSync == null
-        ? 'Waiting for first sync'
-        : 'Synced ${_ago(lastSync)}';
+        ? tr('Waiting for first sync')
+        : trf('Synced {0}', [_ago(lastSync)]);
 
     return GlassPanel(
       padding: const EdgeInsets.all(12),
@@ -341,13 +325,13 @@ class _CatalogStatus extends ConsumerWidget {
                 active: syncing,
               ),
               const SizedBox(width: 4),
-              const Expanded(child: HudLabel('IPSW.me catalog')),
+              Expanded(child: HudLabel(tr('Firmware catalog'))),
               SizedBox(
                 width: 26,
                 height: 26,
                 child: IconButton(
                   padding: EdgeInsets.zero,
-                  tooltip: 'Force resync',
+                  tooltip: tr('Force resync'),
                   iconSize: 15,
                   color: HudColors.textMuted,
                   onPressed: syncing
@@ -366,13 +350,16 @@ class _CatalogStatus extends ConsumerWidget {
           Text(
             state == null
                 ? '—'
-                : '${state.index.devices.length} devices · ${state.index.payloadCount} payloads',
+                : trf('{0} devices · {1} payloads', [
+                    state.index.devices.length,
+                    state.index.payloadCount,
+                  ]),
             style: HudTheme.telemetry(size: 11, color: HudColors.textPrimary),
           ),
           const SizedBox(height: 2),
           Text(
             subtitle,
-            style: const TextStyle(fontSize: 11, color: HudColors.textMuted),
+            style: TextStyle(fontSize: 11, color: HudColors.textMuted),
           ),
           if (syncing) ...[
             const SizedBox(height: 8),
@@ -385,9 +372,9 @@ class _CatalogStatus extends ConsumerWidget {
 
   static String _ago(DateTime t) {
     final d = DateTime.now().difference(t);
-    if (d.inMinutes < 1) return 'just now';
-    if (d.inHours < 1) return '${d.inMinutes}m ago';
-    if (d.inDays < 1) return '${d.inHours}h ago';
-    return '${d.inDays}d ago';
+    if (d.inMinutes < 1) return tr('just now');
+    if (d.inHours < 1) return trf('{0}m ago', [d.inMinutes]);
+    if (d.inDays < 1) return trf('{0}h ago', [d.inHours]);
+    return trf('{0}d ago', [d.inDays]);
   }
 }

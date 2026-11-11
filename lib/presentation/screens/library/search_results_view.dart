@@ -9,6 +9,7 @@ import '../../providers/ui_providers.dart';
 import '../../widgets/hud_widgets.dart';
 import 'firmware_group_tile.dart';
 import 'library_screen.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Search results with a version filter, so e.g. "all signed iOS 27.0.1"
 /// can be selected without also picking up the 15.8.x builds still signed
@@ -55,7 +56,7 @@ class SearchResultsView extends ConsumerWidget {
         : query.targetsVersion
         ? '${query.platforms.map((p) => p.label).join('/')} ${query.version ?? ''}'
               '${query.build != null ? ' (${query.build!.toUpperCase()})' : ''}'
-        : 'Search results';
+        : tr('Search results');
 
     return GlassPanel(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
@@ -77,9 +78,18 @@ class SearchResultsView extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${groups.length} payloads'
-                      '${selectedFacets.isEmpty ? '' : ' (of ${result.groups.length})'} · '
-                      '${signed.length} signed covering $signedTargets device targets (${formatBytes(signedBytes)})',
+                      trf(
+                        '{0} payloads{1} · {2} signed covering {3} device targets ({4})',
+                        [
+                          groups.length,
+                          selectedFacets.isEmpty
+                              ? ''
+                              : trf(' (of {0})', [result.groups.length]),
+                          signed.length,
+                          signedTargets,
+                          formatBytes(signedBytes),
+                        ],
+                      ),
                       style: HudTheme.telemetry(
                         size: 12,
                         color: HudColors.textMuted,
@@ -89,7 +99,7 @@ class SearchResultsView extends ConsumerWidget {
                 ),
               ),
               NeonButton(
-                label: 'Select all (${groups.length})',
+                label: trf('Select all ({0})', [groups.length]),
                 variant: NeonVariant.ghost,
                 compact: true,
                 onPressed: groups.isEmpty
@@ -100,7 +110,7 @@ class SearchResultsView extends ConsumerWidget {
               ),
               const SizedBox(width: 10),
               NeonButton(
-                label: 'Select signed (${signed.length})',
+                label: trf('Select signed ({0})', [signed.length]),
                 icon: Icons.verified_rounded,
                 compact: true,
                 onPressed: signed.isEmpty
@@ -125,11 +135,11 @@ class SearchResultsView extends ConsumerWidget {
                         ? Icons.travel_explore_rounded
                         : Icons.search_off_rounded,
                     title: pendingModel
-                        ? 'Resolving model number…'
-                        : 'No matching firmware',
-                    message:
-                        'Try "iPhone 15 Pro", "Mac14,2", "A2442", "iOS 18.0.1", "22A3354" '
-                        'or tags like is:signed platform:macos chip:m-series.',
+                        ? tr('Resolving model number…')
+                        : tr('No matching firmware'),
+                    message: tr(
+                      'Try "iPhone 15 Pro", "Mac14,2", "A2442", "iOS 18.0.1", "22A3354" or tags like is:signed platform:macos chip:m-series.',
+                    ),
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.only(bottom: 90),
@@ -166,17 +176,17 @@ class _VersionFacetBar extends ConsumerWidget {
 
     return Row(
       children: [
-        const HudLabel('Version'),
+        HudLabel(tr('Version')),
         const SizedBox(width: 12),
         _FacetChip(
-          label: 'All',
+          label: tr('All'),
           detail: '${facets.fold<int>(0, (s, f) => s + f.payloads)}',
           active: selected.isEmpty,
           onTap: () => notifier.set(const {}),
         ),
         const SizedBox(width: 6),
         _FacetChip(
-          label: 'Latest',
+          label: tr('Latest'),
           detail: latest.length == 1
               ? facets.first.version
               : '${latest.length} OS',
@@ -200,8 +210,11 @@ class _VersionFacetBar extends ConsumerWidget {
               itemBuilder: (_, i) {
                 final f = facets[i];
                 return Tooltip(
-                  message:
-                      '${f.payloads} payloads · ${f.deviceTargets} device targets · ${formatBytes(f.bytes)}',
+                  message: trf('{0} payloads · {1} device targets · {2}', [
+                    f.payloads,
+                    f.deviceTargets,
+                    formatBytes(f.bytes),
+                  ]),
                   child: _FacetChip(
                     label: f.label,
                     detail: '${f.payloads}',
@@ -247,11 +260,11 @@ class _FacetChip extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             color: active
                 ? HudColors.cyan.withValues(alpha: 0.14)
-                : Colors.white.withValues(alpha: 0.03),
+                : HudColors.overlay.withValues(alpha: 0.03),
             border: Border.all(
               color: active
                   ? HudColors.cyan.withValues(alpha: 0.6)
-                  : Colors.white.withValues(alpha: 0.08),
+                  : HudColors.overlay.withValues(alpha: 0.08),
             ),
             boxShadow: active
                 ? [

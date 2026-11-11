@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,11 +7,14 @@ import 'package:path/path.dart' as p;
 
 import '../../domain/entities/ios_device.dart';
 import '../../services/device/app_icon_service.dart';
+import '../../services/device/device_image_service.dart';
 import '../../services/device/device_parsers.dart';
 import '../../services/device/device_service.dart';
 import '../../services/device/device_toolchain.dart';
+import '../../services/restore/restore_insight.dart';
 import '../../services/restore/restore_runner.dart';
 import 'core_providers.dart';
+import '../../core/l10n/l10n.dart';
 
 final deviceToolchainProvider = Provider<DeviceToolchain>(
   (ref) => DeviceToolchain(
@@ -178,17 +182,20 @@ enum DeviceTab {
   overview('Overview'),
   apps('Apps'),
   files('Files'),
-  gallery('Gallery'),
+  gallery('Photos'),
   contacts('Contacts'),
   screen('Screen'),
-  console('Console'),
+  console('Logs'),
   backup('Backup'),
   tools('Tools'),
-  restore('Restore / Flash');
+  restore('Firmware');
 
-  const DeviceTab(this.label);
+  const DeviceTab(this._label);
 
-  final String label;
+  final String _label;
+
+  /// In the interface language.
+  String get label => tr(_label);
 
   /// Tabs that work without a booted, paired OS.
   bool get lowLevel => this == overview || this == restore;
@@ -403,18 +410,61 @@ class RestoreState {
     this.log = const [],
     this.startedAt,
     this.finishedAt,
+    this.overall = 0,
+    this.activity,
+    this.aborted = false,
   });
 
   final JobStatus status;
   final RestoreRequest? request;
   final RestoreStep? step;
+
+  /// Progress through [step], 0–1.
   final double fraction;
+
+  /// Progress through the whole restore, 0–1; never goes backwards.
+  final double overall;
+
+  /// What the tool is doing in plain words, between progress updates.
+  final String? activity;
+
+  /// The user stopped the restore.
+  final bool aborted;
   final List<RestoreStep> stepsSeen;
   final List<RestoreLogEvent> log;
   final DateTime? startedAt;
   final DateTime? finishedAt;
 
   bool get running => status == JobStatus.running;
+
+  /// Whole-restore progress shown to the user.
+  double get shownProgress => status == JobStatus.succeeded
+      ? 1
+      : math.max(overall, RestoreInsight.overall(step, fraction));
+
+  RestoreState copyWith({
+    JobStatus? status,
+    RestoreStep? step,
+    double? fraction,
+    List<RestoreStep>? stepsSeen,
+    List<RestoreLogEvent>? log,
+    DateTime? finishedAt,
+    double? overall,
+    String? activity,
+    bool? aborted,
+  }) => RestoreState(
+    status: status ?? this.status,
+    request: request,
+    step: step ?? this.step,
+    fraction: fraction ?? this.fraction,
+    stepsSeen: stepsSeen ?? this.stepsSeen,
+    log: log ?? this.log,
+    startedAt: startedAt,
+    finishedAt: finishedAt ?? this.finishedAt,
+    overall: overall ?? this.overall,
+    activity: activity ?? this.activity,
+    aborted: aborted ?? this.aborted,
+  );
 }
 
 class RestoreController extends Notifier<RestoreState> {
@@ -454,28 +504,23 @@ class RestoreController extends Notifier<RestoreState> {
       await for (final e in runner.run(request)) {
         switch (e) {
           case RestoreProgressEvent(:final step, :final fraction):
-            state = RestoreState(
-              status: JobStatus.running,
-              request: request,
+            state = state.copyWith(
               step: step,
               fraction: fraction,
               stepsSeen: state.stepsSeen.contains(step)
                   ? state.stepsSeen
                   : [...state.stepsSeen, step],
-              log: state.log,
-              startedAt: state.startedAt,
+              overall: math.max(
+                state.overall,
+                RestoreInsight.overall(step, fraction),
+              ),
             );
           case RestoreLogEvent():
             log.add(e);
             if (log.length > 1500) log.removeAt(0);
-            state = RestoreState(
-              status: JobStatus.running,
-              request: request,
-              step: state.step,
-              fraction: state.fraction,
-              stepsSeen: state.stepsSeen,
+            state = state.copyWith(
               log: List.of(log),
-              startedAt: state.startedAt,
+              activity: RestoreInsight.activity(e.line),
             );
           case RestoreFinishedEvent(success: final ok):
             success = ok;
@@ -486,20 +531,38 @@ class RestoreController extends Notifier<RestoreState> {
     } finally {
       _runner = null;
       devices.setPaused(false);
-      state = RestoreState(
+      state = state.copyWith(
         status: success ? JobStatus.succeeded : JobStatus.failed,
-        request: request,
-        step: state.step,
         fraction: success ? 1 : state.fraction,
-        stepsSeen: state.stepsSeen,
+        overall: success ? 1 : state.overall,
         log: List.of(log),
-        startedAt: state.startedAt,
         finishedAt: DateTime.now(),
       );
     }
   }
 
-  void abort() => _runner?.abort();
+  void abort() {
+    if (_runner == null) return;
+    state = state.copyWith(aborted: true);
+    _runner?.abort();
+  }
+
+  /// Runs the last restore again (same IPSW, device and mode).
+  Future<void> retry() async {
+    final last = state.request;
+    if (state.running || last == null) return;
+    // The device may have come back with a different id (e.g. now in
+    // Recovery mode); ECID targeting in the runner still finds it.
+    await start(
+      RestoreRequest(
+        ipswPath: last.ipswPath,
+        device: last.device,
+        erase: last.erase,
+        cacheDirectory: last.cacheDirectory,
+        logFile: newLogFile(),
+      ),
+    );
+  }
 
   void reset() {
     if (!state.running) state = const RestoreState();
@@ -591,3 +654,34 @@ final deviceSetupDoneProvider = FutureProvider.autoDispose
       (ref, id) =>
           ref.watch(deviceServiceProvider).setupDone(_require(ref, id)),
     );
+
+// ───────────────────────── device photos ─────────────────────────
+
+final deviceImageServiceProvider = Provider<DeviceImageService>(
+  (ref) => DeviceImageService(
+    cacheDir: p.join(ref.watch(appSupportDirProvider), 'device_images'),
+  ),
+);
+
+/// Local path of a product photo for a connected device (`null` when there
+/// is none). Keyed by `productType|DeviceColor|DeviceEnclosureColor`.
+final deviceImageProvider = FutureProvider.family<String?, String>((ref, key) {
+  final parts = key.split('|');
+  String? at(int i) =>
+      i < parts.length && parts[i].isNotEmpty ? parts[i] : null;
+  return ref
+      .watch(deviceImageServiceProvider)
+      .imageFor(parts.first, color: at(1), enclosureColor: at(2));
+});
+
+/// [deviceImageProvider] key for [d], or `null` before its model is known.
+String? deviceImageKey(ConnectedDevice d) {
+  final type = d.productType ?? d.info?.productType;
+  if (type == null) return null;
+  final raw = d.info?.raw ?? const {};
+  return [
+    type,
+    raw['DeviceColor']?.toString() ?? '',
+    raw['DeviceEnclosureColor']?.toString() ?? '',
+  ].join('|');
+}

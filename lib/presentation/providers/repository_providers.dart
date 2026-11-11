@@ -12,6 +12,7 @@ import '../../services/repository/repository_scanner.dart';
 import 'catalog_providers.dart';
 import 'core_providers.dart';
 import 'download_providers.dart';
+import '../../core/l10n/l10n.dart';
 
 final scanBoxProvider = Provider<Box<String>>(
   (_) => throw UnimplementedError(),
@@ -130,11 +131,13 @@ class RepositoryController extends Notifier<RepositoryState> {
           entries: const [],
           skipped: [e.folder],
           accessDenied: true,
-          error: () => 'No permission to read this folder.',
+          error: () => tr('No permission to read this folder.'),
         );
       }
     } catch (e) {
-      if (ref.mounted) state = state.copyWith(error: () => 'Scan failed: $e');
+      if (ref.mounted) {
+        state = state.copyWith(error: () => trf('Scan failed: {0}', [e]));
+      }
     } finally {
       if (ref.mounted) {
         state = state.copyWith(scanning: false, currentPath: () => null);

@@ -22,6 +22,8 @@ import '../../providers/ui_providers.dart';
 import '../../widgets/download_feedback.dart';
 import '../../widgets/hud_widgets.dart';
 import 'device_widgets.dart';
+import 'restore_progress.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// An IPSW that can restore the selected device.
 class _Candidate {
@@ -55,7 +57,9 @@ class RestoreTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final restore = ref.watch(restoreProvider);
-    if (restore.status != JobStatus.idle) return _Progress(state: restore);
+    if (restore.status != JobStatus.idle) {
+      return RestoreProgressView(state: restore);
+    }
     if (device == null) return const SizedBox.shrink();
     if (!ref.watch(deviceToolchainProvider).has(DeviceTool.idevicerestore)) {
       return const _MissingRestoreTool();
@@ -131,28 +135,32 @@ class _SetupState extends ConsumerState<_Setup> {
     return ListView(
       children: [
         DeviceCard(
-          title: 'Firmware for ${d.displayName}',
+          title: trf('Firmware for {0}', [d.displayName]),
           icon: Icons.system_update_alt_rounded,
           trailing: NeonButton(
-            label: 'Browse for IPSW…',
+            label: tr('Browse for IPSW…'),
             icon: Icons.folder_open_rounded,
             variant: NeonVariant.ghost,
             compact: true,
             onPressed: _browse,
           ),
           child: type == null
-              ? const Text(
-                  'The device model could not be identified.',
+              ? Text(
+                  tr('The device model could not be identified.'),
                   style: TextStyle(color: HudColors.warning),
                 )
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'IPSW files in your repository that restore $type'
-                      '${current == null ? '' : ' (currently iOS $current)'}. '
-                      'Only firmware Apple is still signing can be installed.',
-                      style: const TextStyle(
+                      trf(
+                        'IPSW files in your repository that restore {0}{1}. Only firmware Apple is still signing can be installed.',
+                        [
+                          type,
+                          current == null ? '' : ' (currently iOS $current)',
+                        ],
+                      ),
+                      style: TextStyle(
                         color: HudColors.textMuted,
                         fontSize: 12.5,
                       ),
@@ -173,35 +181,37 @@ class _SetupState extends ConsumerState<_Setup> {
         ),
         const SizedBox(height: 14),
         DeviceCard(
-          title: 'Restore type',
+          title: tr('Restore type'),
           icon: Icons.tune_rounded,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _ModeOption(
-                title: 'Update',
-                subtitle:
-                    'Installs the firmware and keeps apps, data and settings.',
+                title: tr('Update'),
+                subtitle: tr(
+                  'Installs the firmware and keeps apps, data and settings.',
+                ),
                 selected: !erase,
                 enabled: updateAllowed && !downgrade,
                 onTap: () => setState(() => _erase = false),
               ),
               const SizedBox(height: 8),
               _ModeOption(
-                title: 'Erase and restore',
-                subtitle:
-                    'Wipes everything and installs a clean system. Required for downgrades '
-                    'and for devices in DFU mode.',
+                title: tr('Erase and restore'),
+                subtitle: tr(
+                  'Wipes everything and installs a clean system. Required for downgrades and for devices in DFU mode.',
+                ),
                 selected: erase,
                 danger: true,
                 onTap: () => setState(() => _erase = true),
               ),
               if (downgrade)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 10),
                   child: Text(
-                    'Selected firmware is older than the installed iOS: only an erase '
-                    'restore is possible, and only while Apple still signs it.',
+                    tr(
+                      'Selected firmware is older than the installed iOS: only an erase restore is possible, and only while Apple still signs it.',
+                    ),
                     style: TextStyle(color: HudColors.warning, fontSize: 12.5),
                   ),
                 ),
@@ -214,7 +224,7 @@ class _SetupState extends ConsumerState<_Setup> {
         Align(
           alignment: Alignment.centerRight,
           child: NeonButton(
-            label: erase ? 'Erase & flash' : 'Update firmware',
+            label: erase ? tr('Erase & flash') : tr('Update firmware'),
             icon: Icons.bolt_rounded,
             variant: erase ? NeonVariant.danger : NeonVariant.primary,
             onPressed: selected == null || selected.signed == false
@@ -223,10 +233,12 @@ class _SetupState extends ConsumerState<_Setup> {
           ),
         ),
         if (selected?.signed == false)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 8),
             child: Text(
-              'Apple no longer signs this build: the restore would fail at the signing step.',
+              tr(
+                'Apple no longer signs this build: the restore would fail at the signing step.',
+              ),
               textAlign: TextAlign.right,
               style: TextStyle(color: HudColors.danger, fontSize: 12.5),
             ),
@@ -237,8 +249,8 @@ class _SetupState extends ConsumerState<_Setup> {
 
   Future<void> _browse() async {
     final file = await openFile(
-      acceptedTypeGroups: const [
-        XTypeGroup(label: 'Firmware', extensions: ['ipsw']),
+      acceptedTypeGroups: [
+        XTypeGroup(label: tr('Firmware'), extensions: ['ipsw']),
       ],
     );
     if (file == null || !mounted) return;
@@ -247,8 +259,11 @@ class _SetupState extends ConsumerState<_Setup> {
       final type = productType;
       if (type != null && !m.supportedProductTypes.contains(type)) {
         throw Exception(
-          'This IPSW is for ${m.supportedProductTypes.take(4).join(', ')}'
-          '${m.supportedProductTypes.length > 4 ? '…' : ''}, not $type.',
+          trf('This IPSW is for {0}{1}, not {2}.', [
+            m.supportedProductTypes.take(4).join(', '),
+            m.supportedProductTypes.length > 4 ? '…' : '',
+            type,
+          ]),
         );
       }
       final releases = type == null
@@ -283,16 +298,26 @@ class _SetupState extends ConsumerState<_Setup> {
     final ok = await confirmDialog(
       context,
       title: erase
-          ? 'Erase ${d.displayName} and install iOS ${c.version}?'
-          : 'Update ${d.displayName} to iOS ${c.version}?',
+          ? trf('Erase {0} and install iOS {1}?', [d.displayName, c.version])
+          : trf('Update {0} to iOS {1}?', [d.displayName, c.version]),
       message: [
-        if (erase) 'ALL DATA ON THE DEVICE WILL BE ERASED. Back it up first (Backup tab).',
-        'Keep the cable connected and the computer awake until the restore finishes '
-            '(usually 10–25 minutes). Unplugging mid-way leaves the device in Recovery mode.',
-        if (erase) 'After an erase, Activation Lock asks for the Apple ID that owns the device.',
-        if (Platform.isWindows) 'Windows: Apple Devices / iTunes must be installed for the Recovery and DFU USB drivers.',
+        if (erase)
+          tr(
+            'ALL DATA ON THE DEVICE WILL BE ERASED. Back it up first (Backup tab).',
+          ),
+        tr(
+          'Keep the cable connected and the computer awake until the restore finishes (usually 10–25 minutes). Unplugging mid-way leaves the device in Recovery mode.',
+        ),
+        if (erase)
+          tr(
+            'After an erase, Activation Lock asks for the Apple ID that owns the device.',
+          ),
+        if (Platform.isWindows)
+          tr(
+            'Windows: Apple Devices / iTunes must be installed for the Recovery and DFU USB drivers.',
+          ),
       ].join('\n\n'),
-      confirmLabel: erase ? 'Erase & flash' : 'Start update',
+      confirmLabel: erase ? tr('Erase & flash') : tr('Start update'),
       danger: erase,
       typeToConfirm: erase ? 'ERASE' : null,
     );
@@ -337,7 +362,7 @@ class _CandidateRow extends StatelessWidget {
             border: Border.all(
               color: selected
                   ? HudColors.cyan.withValues(alpha: 0.45)
-                  : Colors.white.withValues(alpha: 0.06),
+                  : HudColors.overlay.withValues(alpha: 0.06),
             ),
           ),
           child: Row(
@@ -364,10 +389,7 @@ class _CandidateRow extends StatelessWidget {
                 child: Text(
                   p.basename(c.path),
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: HudColors.textMuted,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: HudColors.textMuted, fontSize: 12),
                 ),
               ),
               Text(
@@ -376,16 +398,16 @@ class _CandidateRow extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               if (c.integrity == Integrity.verified)
-                const HudPill('SHA1 ✓', color: HudColors.success)
+                HudPill(tr('SHA1 ✓'), color: HudColors.success)
               else if (c.integrity == Integrity.mismatch ||
                   c.integrity == Integrity.sizeMismatch)
-                const HudPill('Corrupt', color: HudColors.danger),
+                HudPill(tr('Corrupt'), color: HudColors.danger),
               const SizedBox(width: 6),
               HudPill(
                 switch (c.signed) {
-                  true => 'Signed',
-                  false => 'Unsigned',
-                  null => 'Signing unknown',
+                  true => tr('Signed'),
+                  false => tr('Unsigned'),
+                  null => tr('Signing unknown'),
                 },
                 color: switch (c.signed) {
                   true => HudColors.success,
@@ -411,10 +433,12 @@ class _NoLocalFirmware extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final group = ref.watch(catalogIndexProvider).latestSigned(productType);
     if (group == null) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 8),
         child: Text(
-          'No local firmware, and the catalog has no signed build for this device yet.',
+          tr(
+            'No local firmware, and the catalog has no signed build for this device yet.',
+          ),
           style: TextStyle(color: HudColors.textMuted, fontSize: 12.5),
         ),
       );
@@ -431,7 +455,7 @@ class _NoLocalFirmware extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.cloud_download_rounded, color: HudColors.purple),
+          Icon(Icons.cloud_download_rounded, color: HudColors.purple),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -439,8 +463,8 @@ class _NoLocalFirmware extends ConsumerWidget {
               children: [
                 Text(
                   hasUnsigned
-                      ? 'Latest signed firmware is not in your repository'
-                      : 'No firmware for this device in your repository',
+                      ? tr('Latest signed firmware is not in your repository')
+                      : tr('No firmware for this device in your repository'),
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 Text(
@@ -461,14 +485,14 @@ class _NoLocalFirmware extends ConsumerWidget {
           const SizedBox(width: 10),
           if (task == null)
             NeonButton(
-              label: 'Download',
+              label: tr('Download'),
               icon: Icons.download_rounded,
               compact: true,
               onPressed: () => queueIpswDownloads(context, ref, [group]),
             )
           else if (task.status != DownloadStatus.completed)
             NeonButton(
-              label: 'View in Downloads',
+              label: tr('View in Downloads'),
               variant: NeonVariant.ghost,
               compact: true,
               onPressed: () =>
@@ -513,7 +537,7 @@ class _ModeOption extends StatelessWidget {
             border: Border.all(
               color: selected
                   ? color.withValues(alpha: 0.5)
-                  : Colors.white.withValues(alpha: 0.07),
+                  : HudColors.overlay.withValues(alpha: 0.07),
             ),
           ),
           child: Row(
@@ -536,7 +560,7 @@ class _ModeOption extends StatelessWidget {
                     ),
                     Text(
                       subtitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: HudColors.textMuted,
                         fontSize: 12.5,
                       ),
@@ -587,7 +611,7 @@ class _Checklist extends ConsumerWidget {
       ),
     );
     return DeviceCard(
-      title: 'Before you start',
+      title: tr('Before you start'),
       icon: Icons.checklist_rounded,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -595,228 +619,37 @@ class _Checklist extends ConsumerWidget {
           if (level != null)
             item(
               level >= 30,
-              'Battery at $level%${level < 30 ? ': charge to 30% or more first' : ''}',
+              trf('Battery at {0}%{1}', [
+                level,
+                level < 30 ? tr(': charge to 30% or more first') : '',
+              ]),
             ),
-          if (erase)
-            item(null, 'Back up the device first: an erase cannot be undone.'),
           if (erase)
             item(
               null,
-              'Know the Apple ID password: Activation Lock applies after an erase.',
+              tr('Back up the device first: an erase cannot be undone.'),
+            ),
+          if (erase)
+            item(
+              null,
+              tr(
+                'Know the Apple ID password: Activation Lock applies after an erase.',
+              ),
             ),
           item(
             null,
-            'Use a direct USB cable (no hubs) and keep the computer from sleeping.',
+            tr(
+              'Use a direct USB cable (no hubs) and keep the computer from sleeping.',
+            ),
           ),
           item(
             null,
-            'Free disk space: the restore cache needs about as much space as the IPSW.',
+            tr(
+              'Free disk space: the restore cache needs about as much space as the IPSW.',
+            ),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _Progress extends ConsumerWidget {
-  const _Progress({required this.state});
-
-  final RestoreState state;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final ctl = ref.read(restoreProvider.notifier);
-    final req = state.request!;
-    final color = switch (state.status) {
-      JobStatus.succeeded => HudColors.success,
-      JobStatus.failed => HudColors.danger,
-      _ => HudColors.cyan,
-    };
-    final elapsed = (state.finishedAt ?? DateTime.now()).difference(
-      state.startedAt ?? DateTime.now(),
-    );
-    return ListView(
-      children: [
-        GlassPanel(
-          glow: state.running,
-          borderColor: color.withValues(alpha: 0.5),
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  if (state.running)
-                    PulseDot(color: color)
-                  else
-                    Icon(
-                      state.status == JobStatus.succeeded
-                          ? Icons.check_circle_rounded
-                          : Icons.error_rounded,
-                      color: color,
-                    ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      switch (state.status) {
-                        JobStatus.succeeded => 'Restore complete',
-                        JobStatus.failed => 'Restore failed',
-                        _ =>
-                          req.erase
-                              ? 'Erasing and flashing firmware…'
-                              : 'Updating firmware…',
-                      },
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    '${elapsed.inMinutes}:${(elapsed.inSeconds % 60).toString().padLeft(2, '0')}',
-                    style: HudTheme.telemetry(size: 14, color: color),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '${req.device.displayName} · ${p.basename(req.ipswPath)}',
-                style: HudTheme.telemetry(size: 12, color: HudColors.textMuted),
-              ),
-              const SizedBox(height: 14),
-              if (state.running) ...[
-                Row(
-                  children: [
-                    Text(
-                      state.step?.label ?? 'Starting…',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '${(state.fraction * 100).toStringAsFixed(0)}%',
-                      style: HudTheme.telemetry(size: 13),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                GlowProgressBar(value: state.fraction, height: 6),
-                const SizedBox(height: 12),
-              ],
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final s in RestoreStep.values)
-                    if (state.stepsSeen.contains(s))
-                      HudPill(
-                        s.label,
-                        color: s == state.step && state.running
-                            ? HudColors.cyan
-                            : HudColors.success,
-                        icon: s == state.step && state.running
-                            ? Icons.sync_rounded
-                            : Icons.check_rounded,
-                        mono: false,
-                      ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              if (state.running)
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Do not disconnect the device. Device detection is paused until the restore ends.',
-                        style: TextStyle(
-                          color: HudColors.warning,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                    ),
-                    NeonButton(
-                      label: 'Abort',
-                      variant: NeonVariant.danger,
-                      compact: true,
-                      onPressed: () async {
-                        if (await confirmDialog(
-                          context,
-                          title: 'Abort the restore?',
-                          message:
-                              'Stopping now can leave the device in Recovery mode with no working '
-                              'system. It will then need another restore.',
-                          confirmLabel: 'Abort',
-                          danger: true,
-                          typeToConfirm: 'ABORT',
-                        )) {
-                          ctl.abort();
-                        }
-                      },
-                    ),
-                  ],
-                )
-              else
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        state.status == JobStatus.succeeded
-                            ? 'The device is rebooting. Finish setup on the device.'
-                            : 'Check the log below. A device left in Recovery mode can be restored again.',
-                        style: const TextStyle(
-                          color: HudColors.textMuted,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                    ),
-                    if (req.logFile != null)
-                      NeonButton(
-                        label: 'Open log file',
-                        variant: NeonVariant.ghost,
-                        compact: true,
-                        onPressed: () => revealPath(req.logFile!),
-                      ),
-                    const SizedBox(width: 8),
-                    NeonButton(
-                      label: 'Done',
-                      compact: true,
-                      onPressed: ctl.reset,
-                    ),
-                  ],
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        DeviceCard(
-          title: 'idevicerestore output',
-          icon: Icons.terminal_rounded,
-          child: Container(
-            height: 320,
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: SelectionArea(
-              child: ListView(
-                reverse: true,
-                children: [
-                  for (final l in state.log.reversed)
-                    Text(
-                      l.line,
-                      style: HudTheme.telemetry(
-                        size: 11.5,
-                        color: l.isError
-                            ? HudColors.danger
-                            : HudColors.textPrimary,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -826,7 +659,7 @@ class _MissingRestoreTool extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DeviceCard(
-    title: 'idevicerestore not found',
+    title: tr('idevicerestore not found'),
     icon: Icons.build_circle_outlined,
     child: SelectableText(
       Platform.isWindows

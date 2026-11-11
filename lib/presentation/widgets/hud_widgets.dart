@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -20,7 +19,7 @@ class HudEffects extends InheritedWidget {
   bool updateShouldNotify(HudEffects old) => old.reduced != reduced;
 }
 
-/// App backdrop: OLED base, faint telemetry grid and two soft neon glows.
+/// App backdrop: flat graphite with a faint accent wash at the top.
 class HudBackground extends StatelessWidget {
   const HudBackground({super.key, required this.child});
 
@@ -30,76 +29,29 @@ class HudBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     final reduced = HudEffects.reducedOf(context);
     return DecoratedBox(
-      decoration: const BoxDecoration(color: HudColors.background),
-      child: Stack(
-        children: [
-          const Positioned.fill(child: CustomPaint(painter: _GridPainter())),
-          if (!reduced)
-            Positioned(
-              left: -220,
-              top: -260,
-              child: _Glow(
-                color: HudColors.cyan.withValues(alpha: 0.10),
-                size: 620,
+      decoration: BoxDecoration(
+        color: HudColors.background,
+        gradient: reduced
+            ? null
+            : LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color.alphaBlend(
+                    HudColors.cyan.withValues(alpha: 0.05),
+                    HudColors.background,
+                  ),
+                  HudColors.background,
+                ],
+                stops: const [0, 0.45],
               ),
-            ),
-          if (!reduced)
-            Positioned(
-              right: -260,
-              bottom: -300,
-              child: _Glow(
-                color: HudColors.purple.withValues(alpha: 0.14),
-                size: 720,
-              ),
-            ),
-          Positioned.fill(child: child),
-        ],
       ),
+      child: child,
     );
   }
 }
 
-class _Glow extends StatelessWidget {
-  const _Glow({required this.color, required this.size});
-
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) => IgnorePointer(
-    child: Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
-      ),
-    ),
-  );
-}
-
-class _GridPainter extends CustomPainter {
-  const _GridPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = HudColors.cyan.withValues(alpha: 0.035)
-      ..strokeWidth = 1;
-    const step = 36.0;
-    for (var x = 0.0; x < size.width; x += step) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (var y = 0.0; y < size.height; y += step) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-/// Frosted glass container with a micro-glow border.
+/// Card surface: solid fill, hairline border, soft shadow.
 class GlassPanel extends StatelessWidget {
   const GlassPanel({
     super.key,
@@ -114,62 +66,42 @@ class GlassPanel extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
   final double radius;
+
+  /// Lifts the card a little (focus, hero cards).
   final bool glow;
   final Color? borderColor;
   final Color? tint;
 
   @override
   Widget build(BuildContext context) {
-    final border = borderColor ?? HudColors.glassBorder;
-    if (HudEffects.reducedOf(context)) {
-      // Solid panel: no backdrop blur, gradient or soft shadow.
-      return Container(
-        padding: padding,
-        decoration: BoxDecoration(
-          color: Color.alphaBlend(
-            (tint ?? Colors.white).withValues(alpha: 0.04),
-            HudColors.surface,
-          ),
-          borderRadius: BorderRadius.circular(radius),
-          border: Border.all(color: border, width: 1),
-        ),
-        child: child,
-      );
-    }
-    return DecoratedBox(
+    final reduced = HudEffects.reducedOf(context);
+    return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius),
-        boxShadow: glow
-            ? [
-                BoxShadow(
-                  color: border.withValues(alpha: 0.25),
-                  blurRadius: 24,
-                  spreadRadius: -6,
-                ),
-              ]
-            : null,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Container(
-            padding: padding,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(radius),
-              border: Border.all(color: border, width: 1),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  (tint ?? Colors.white).withValues(alpha: 0.06),
-                  (tint ?? Colors.white).withValues(alpha: 0.02),
-                ],
+        color: tint == null
+            ? HudColors.surface
+            : Color.alphaBlend(
+                tint!.withValues(alpha: 0.06),
+                HudColors.surface,
               ),
-            ),
-            child: child,
-          ),
-        ),
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: borderColor ?? HudColors.glassBorder),
+        boxShadow: reduced
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: glow ? 0.35 : 0.18),
+                  blurRadius: glow ? 28 : 12,
+                  offset: Offset(0, glow ? 10 : 4),
+                ),
+              ],
+      ),
+      // Ink (list tiles, hover highlights) paints on the nearest Material;
+      // without this one the opaque card would hide it.
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: BorderRadius.circular(radius),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(padding: padding, child: child),
       ),
     );
   }
@@ -211,7 +143,7 @@ class _NeonButtonState extends State<NeonButton> {
     final fg = !enabled
         ? HudColors.textMuted
         : primary
-        ? HudColors.background
+        ? Colors.white
         : accent;
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
@@ -226,33 +158,12 @@ class _NeonButtonState extends State<NeonButton> {
             vertical: widget.compact ? 6 : 10,
           ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(9),
-            gradient: primary && enabled
-                ? const LinearGradient(
-                    colors: [
-                      HudColors.cyan,
-                      Color(0xFF4F7BFF),
-                      HudColors.purple,
-                    ],
-                  )
-                : null,
+            borderRadius: BorderRadius.circular(10),
             color: primary && enabled
-                ? null
-                : accent.withValues(alpha: _hover && enabled ? 0.14 : 0.06),
-            border: Border.all(
-              color: enabled
-                  ? accent.withValues(alpha: primary ? 0 : 0.5)
-                  : HudColors.glassBorder,
-            ),
-            boxShadow: enabled && (_hover || primary)
-                ? [
-                    BoxShadow(
-                      color: accent.withValues(alpha: _hover ? 0.45 : 0.22),
-                      blurRadius: _hover ? 18 : 10,
-                      spreadRadius: -2,
-                    ),
-                  ]
-                : null,
+                ? Color.lerp(accent, Colors.white, _hover ? 0.12 : 0)
+                : enabled
+                ? accent.withValues(alpha: _hover ? 0.16 : 0.10)
+                : HudColors.overlay.withValues(alpha: 0.04),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -267,7 +178,6 @@ class _NeonButtonState extends State<NeonButton> {
                   color: fg,
                   fontWeight: FontWeight.w600,
                   fontSize: widget.compact ? 12 : 13,
-                  letterSpacing: 0.3,
                 ),
               ),
             ],
@@ -283,13 +193,14 @@ class HudPill extends StatelessWidget {
   const HudPill(
     this.label, {
     super.key,
-    this.color = HudColors.cyan,
+    Color? color,
     this.icon,
     this.mono = true,
-  });
+  }) : _color = color;
 
   final String label;
-  final Color color;
+  final Color? _color;
+  Color get color => _color ?? HudColors.cyan;
   final IconData? icon;
   final bool mono;
 
@@ -298,9 +209,8 @@ class HudPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.45)),
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -311,13 +221,12 @@ class HudPill extends StatelessWidget {
           ],
           Text(
             label,
-            style: mono
-                ? HudTheme.telemetry(size: 11, color: color)
-                : TextStyle(
-                    fontSize: 11,
-                    color: color,
-                    fontWeight: FontWeight.w600,
-                  ),
+            style: TextStyle(
+              fontSize: 11,
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ],
       ),
@@ -327,14 +236,11 @@ class HudPill extends StatelessWidget {
 
 /// Breathing status dot.
 class PulseDot extends StatefulWidget {
-  const PulseDot({
-    super.key,
-    this.color = HudColors.success,
-    this.size = 8,
-    this.active = true,
-  });
+  const PulseDot({super.key, Color? color, this.size = 8, this.active = true})
+    : _color = color;
 
-  final Color color;
+  final Color? _color;
+  Color get color => _color ?? HudColors.success;
   final double size;
   final bool active;
 
@@ -393,7 +299,6 @@ class _PulseDotState extends State<PulseDot>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: widget.color,
-                  boxShadow: [BoxShadow(color: widget.color, blurRadius: 6)],
                 ),
               ),
             ],
@@ -410,13 +315,16 @@ class GlowProgressBar extends StatelessWidget {
     super.key,
     required this.value,
     this.height = 6,
-    this.colors = const [HudColors.cyan, HudColors.purple],
+    List<Color>? colors,
     this.dimmed = false,
-  });
+  }) : _colors = colors;
 
   final double value;
   final double height;
-  final List<Color> colors;
+  final List<Color>? _colors;
+  List<Color> get colors =>
+      _colors ??
+      [HudColors.cyan, Color.lerp(HudColors.cyan, Colors.white, 0.3)!];
   final bool dimmed;
 
   @override
@@ -428,7 +336,7 @@ class GlowProgressBar extends StatelessWidget {
       builder: (_, v, _) => Container(
         height: height,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
+          color: HudColors.overlay.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(height),
         ),
         alignment: Alignment.centerLeft,
@@ -443,14 +351,6 @@ class GlowProgressBar extends StatelessWidget {
                     dimmed ? c.withValues(alpha: 0.35) : c,
                 ],
               ),
-              boxShadow: dimmed
-                  ? null
-                  : [
-                      BoxShadow(
-                        color: colors.first.withValues(alpha: 0.5),
-                        blurRadius: 8,
-                      ),
-                    ],
             ),
           ),
         ),
@@ -461,14 +361,12 @@ class GlowProgressBar extends StatelessWidget {
 
 /// Mini area chart for bandwidth history.
 class Sparkline extends StatelessWidget {
-  const Sparkline({
-    super.key,
-    required this.values,
-    this.color = HudColors.cyan,
-  });
+  const Sparkline({super.key, required this.values, Color? color})
+    : _color = color;
 
   final List<double> values;
-  final Color color;
+  final Color? _color;
+  Color get color => _color ?? HudColors.cyan;
 
   @override
   Widget build(BuildContext context) =>
@@ -520,20 +418,16 @@ class _SparkPainter extends CustomPainter {
 
 /// Uppercase spaced label used for panel headers.
 class HudLabel extends StatelessWidget {
-  const HudLabel(this.text, {super.key, this.color = HudColors.textMuted});
+  const HudLabel(this.text, {super.key, Color? color}) : _color = color;
 
   final String text;
-  final Color color;
+  final Color? _color;
+  Color get color => _color ?? HudColors.textMuted;
 
   @override
   Widget build(BuildContext context) => Text(
-    text.toUpperCase(),
-    style: TextStyle(
-      fontSize: 11,
-      letterSpacing: 1.6,
-      fontWeight: FontWeight.w600,
-      color: color,
-    ),
+    text,
+    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: color),
   );
 }
 
@@ -543,13 +437,14 @@ class HudIconButton extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     this.onPressed,
-    this.color = HudColors.textMuted,
-  });
+    Color? color,
+  }) : _color = color;
 
   final IconData icon;
   final String tooltip;
   final VoidCallback? onPressed;
-  final Color color;
+  final Color? _color;
+  Color get color => _color ?? HudColors.textMuted;
 
   @override
   Widget build(BuildContext context) => IconButton(
@@ -557,7 +452,7 @@ class HudIconButton extends StatelessWidget {
     onPressed: onPressed,
     icon: Icon(icon, size: 18),
     color: color,
-    hoverColor: HudColors.cyan.withValues(alpha: 0.10),
+    hoverColor: HudColors.overlay.withValues(alpha: 0.06),
     disabledColor: HudColors.textMuted.withValues(alpha: 0.3),
     visualDensity: VisualDensity.compact,
     splashRadius: 18,
@@ -581,7 +476,7 @@ class EmptyState extends StatelessWidget {
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 44, color: HudColors.cyan.withValues(alpha: 0.5)),
+        Icon(icon, size: 44, color: HudColors.textMuted.withValues(alpha: 0.6)),
         const SizedBox(height: 14),
         Text(
           title,
@@ -594,7 +489,7 @@ class EmptyState extends StatelessWidget {
             child: Text(
               message!,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: HudColors.textMuted, fontSize: 13),
+              style: TextStyle(color: HudColors.textMuted, fontSize: 13),
             ),
           ),
         ],

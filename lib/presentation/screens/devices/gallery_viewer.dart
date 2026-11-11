@@ -8,6 +8,7 @@ import '../../../core/theme/hud_theme.dart';
 import '../../../core/utils/byte_format.dart';
 import '../../../domain/entities/ios_device.dart';
 import '../../widgets/hud_widgets.dart';
+import '../../../core/l10n/l10n.dart';
 
 const _videoExtensions = {'.mov', '.mp4', '.m4v'};
 
@@ -33,7 +34,7 @@ class GalleryOriginals {
     await f.parent.create(recursive: true);
     await pull(e.path, f.path);
     if (!f.existsSync()) {
-      throw const FileSystemException('Copy from device failed');
+      throw FileSystemException(tr('Copy from device failed'));
     }
     return f;
   });
@@ -255,13 +256,13 @@ class _ViewerState extends State<_Viewer> {
                   if (widget.onExport != null)
                     HudIconButton(
                       icon: Icons.ios_share_rounded,
-                      tooltip: 'Export this file',
+                      tooltip: tr('Export this file'),
                       color: Colors.white70,
                       onPressed: () => widget.onExport!(e),
                     ),
                   HudIconButton(
                     icon: Icons.open_in_new_rounded,
-                    tooltip: 'Open in the default app',
+                    tooltip: tr('Open in the default app'),
                     color: Colors.white70,
                     onPressed: () async => openWithSystem(
                       (await widget.originals.original(e)).path,
@@ -269,7 +270,7 @@ class _ViewerState extends State<_Viewer> {
                   ),
                   HudIconButton(
                     icon: Icons.close_rounded,
-                    tooltip: 'Close (Esc)',
+                    tooltip: tr('Close (Esc)'),
                     color: Colors.white70,
                     onPressed: () => Navigator.pop(context),
                   ),
@@ -284,7 +285,7 @@ class _ViewerState extends State<_Viewer> {
                 child: Center(
                   child: _NavButton(
                     icon: Icons.chevron_left_rounded,
-                    tooltip: 'Previous (←)',
+                    tooltip: tr('Previous (←)'),
                     onPressed: () => _go(-1),
                   ),
                 ),
@@ -297,7 +298,7 @@ class _ViewerState extends State<_Viewer> {
                 child: Center(
                   child: _NavButton(
                     icon: Icons.chevron_right_rounded,
-                    tooltip: 'Next (→)',
+                    tooltip: tr('Next (→)'),
                     onPressed: () => _go(1),
                   ),
                 ),
@@ -327,14 +328,14 @@ class _ImageView extends StatelessWidget {
     future: originals.viewable(entry),
     builder: (context, snap) {
       if (snap.connectionState != ConnectionState.done) {
-        return const Center(
+        return Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               CircularProgressIndicator(),
               SizedBox(height: 12),
               Text(
-                'Loading original from the device…',
+                tr('Loading original from the device…'),
                 style: TextStyle(color: Colors.white70, fontSize: 12.5),
               ),
             ],
@@ -355,9 +356,11 @@ class _ImageView extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 snap.hasError
-                    ? 'Could not copy the original: ${snap.error}'
-                    : 'This computer can\'t display ${p.extension(entry.name).toUpperCase().substring(1)} '
-                          'images; showing the preview. Use "Open in the default app".',
+                    ? trf('Could not copy the original: {0}', [snap.error])
+                    : trf(
+                        'This computer can\'t display {0} images; showing the preview. Use "Open in the default app".',
+                        [p.extension(entry.name).toUpperCase().substring(1)],
+                      ),
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white70, fontSize: 12.5),
               ),
@@ -374,8 +377,8 @@ class _ImageView extends StatelessWidget {
             file,
             fit: BoxFit.contain,
             filterQuality: FilterQuality.medium,
-            errorBuilder: (_, _, _) => const Text(
-              'This image could not be decoded.',
+            errorBuilder: (_, _, _) => Text(
+              tr('This image could not be decoded.'),
               style: TextStyle(color: Colors.white70),
             ),
           ),
@@ -423,18 +426,18 @@ class _VideoCardState extends State<_VideoCard> {
         const Icon(Icons.movie_rounded, size: 64, color: Colors.white54),
         const SizedBox(height: 14),
         _busy
-            ? const Text(
-                'Copying video from the device…',
+            ? Text(
+                tr('Copying video from the device…'),
                 style: TextStyle(color: Colors.white70),
               )
             : NeonButton(
-                label: 'Play in the default player',
+                label: tr('Play in the default player'),
                 icon: Icons.play_arrow_rounded,
                 onPressed: _play,
               ),
         if (_error != null) ...[
           const SizedBox(height: 10),
-          Text(_error!, style: const TextStyle(color: HudColors.danger)),
+          Text(_error!, style: TextStyle(color: HudColors.danger)),
         ],
       ],
     ),

@@ -7,6 +7,8 @@
 /// does not touch Activation Lock, which Apple enforces during activation.
 library;
 
+import '../../core/l10n/l10n.dart';
+
 /// Panes the user may choose to keep; every other known pane is skipped.
 enum SetupPaneGroup {
   languageRegion('Language & Region', [
@@ -34,9 +36,12 @@ enum SetupPaneGroup {
   ]),
   location('Location Services', ['Location']);
 
-  const SetupPaneGroup(this.label, this.panes);
+  const SetupPaneGroup(this._label, this.panes);
 
-  final String label;
+  final String _label;
+
+  /// In the interface language.
+  String get label => tr(_label);
   final List<String> panes;
 }
 

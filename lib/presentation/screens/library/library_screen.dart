@@ -11,6 +11,7 @@ import '../../widgets/hud_widgets.dart';
 import 'firmware_group_tile.dart';
 import 'search_results_view.dart';
 import 'selection_bar.dart';
+import '../../../core/l10n/l10n.dart';
 
 class LibraryScreen extends ConsumerWidget {
   const LibraryScreen({super.key});
@@ -24,11 +25,13 @@ class LibraryScreen extends ConsumerWidget {
       return catalog.hasError
           ? EmptyState(
               icon: Icons.cloud_off_rounded,
-              title: 'Catalog unavailable',
-              message:
-                  'Could not reach api.ipsw.me and no cached catalog exists yet.\n${catalog.error}',
+              title: tr('Catalog unavailable'),
+              message: trf(
+                'Could not reach api.ipsw.me and no cached catalog exists yet.\n{0}',
+                [catalog.error],
+              ),
             )
-          : const Center(
+          : Center(
               child: CircularProgressIndicator(
                 color: HudColors.cyan,
                 strokeWidth: 2,
@@ -97,10 +100,10 @@ class _BrowseView extends ConsumerWidget {
         const SizedBox(width: 16),
         Expanded(
           child: selectedId == null
-              ? const GlassPanel(
+              ? GlassPanel(
                   child: EmptyState(
                     icon: Icons.devices_other_rounded,
-                    title: 'No devices in this category',
+                    title: tr('No devices in this category'),
                   ),
                 )
               : _DeviceDetail(identifier: selectedId),
@@ -122,8 +125,8 @@ class _CategoryTabs extends ConsumerWidget {
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        color: Colors.black.withValues(alpha: 0.25),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        color: HudColors.overlay.withValues(alpha: 0.05),
+        border: Border.all(color: HudColors.overlay.withValues(alpha: 0.06)),
       ),
       child: Row(
         children: [
@@ -205,7 +208,7 @@ class _DeviceRow extends ConsumerWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(9),
-          hoverColor: Colors.white.withValues(alpha: 0.04),
+          hoverColor: HudColors.overlay.withValues(alpha: 0.04),
           onTap: () =>
               ref.read(selectedDeviceProvider.notifier).set(device.identifier),
           child: AnimatedContainer(
@@ -264,7 +267,7 @@ class _DeviceRow extends ConsumerWidget {
                     ),
                   )
                 else if (!loaded)
-                  const SizedBox(
+                  SizedBox(
                     width: 10,
                     height: 10,
                     child: CircularProgressIndicator(
@@ -341,7 +344,9 @@ class _DeviceDetail extends ConsumerWidget {
                         if (boards.isNotEmpty && boards.first.platform != null)
                           HudPill(
                             CatalogIndex.isAppleSilicon(device)
-                                ? 'APPLE SILICON · ${boards.first.platform!.toUpperCase()}'
+                                ? trf('APPLE SILICON · {0}', [
+                                    boards.first.platform!.toUpperCase(),
+                                  ])
                                 : boards.first.platform!.toUpperCase(),
                             color: HudColors.textMuted,
                           ),
@@ -351,13 +356,13 @@ class _DeviceDetail extends ConsumerWidget {
                 ),
               ),
               _Toggle(
-                label: 'Signed only',
+                label: tr('Signed only'),
                 value: signedOnly,
                 onChanged: (v) => ref.read(signedOnlyProvider.notifier).set(v),
               ),
               const SizedBox(width: 12),
               NeonButton(
-                label: 'Select signed (${signed.length})',
+                label: trf('Select signed ({0})', [signed.length]),
                 icon: Icons.select_all_rounded,
                 variant: NeonVariant.ghost,
                 compact: true,
@@ -374,15 +379,17 @@ class _DeviceDetail extends ConsumerWidget {
           const SizedBox(height: 6),
           Expanded(
             child: !index.hasFirmwares(identifier)
-                ? const EmptyState(
+                ? EmptyState(
                     icon: Icons.downloading_rounded,
-                    title: 'Indexing firmware…',
-                    message: 'This device is still being fetched from IPSW.me.',
+                    title: tr('Indexing firmware…'),
+                    message: tr(
+                      'This device is still being fetched from IPSW.me.',
+                    ),
                   )
                 : groups.isEmpty
-                ? const EmptyState(
+                ? EmptyState(
                     icon: Icons.inventory_2_outlined,
-                    title: 'No IPSW files for this device',
+                    title: tr('No IPSW files for this device'),
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.only(bottom: 90),
@@ -403,27 +410,27 @@ class FirmwareColumnHeader extends StatelessWidget {
   const FirmwareColumnHeader({super.key});
 
   @override
-  Widget build(BuildContext context) => const Padding(
+  Widget build(BuildContext context) => Padding(
     padding: EdgeInsets.symmetric(horizontal: 14),
     child: Row(
       children: [
         SizedBox(width: 32),
-        SizedBox(width: 150, child: HudLabel('Release')),
-        Expanded(child: HudLabel('Shared by')),
+        SizedBox(width: 150, child: HudLabel(tr('Release'))),
+        Expanded(child: HudLabel(tr('Shared by'))),
         SizedBox(
           width: 98,
           child: Align(
             alignment: Alignment.centerRight,
-            child: HudLabel('Size'),
+            child: HudLabel(tr('Size')),
           ),
         ),
         SizedBox(width: 14),
-        SizedBox(width: 82, child: HudLabel('Signing')),
+        SizedBox(width: 82, child: HudLabel(tr('Signing'))),
         SizedBox(
           width: 84,
           child: Align(
             alignment: Alignment.centerRight,
-            child: HudLabel('Released'),
+            child: HudLabel(tr('Released')),
           ),
         ),
         SizedBox(width: 102),
@@ -447,19 +454,11 @@ class _Toggle extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Text(
-        label,
-        style: const TextStyle(fontSize: 12, color: HudColors.textMuted),
-      ),
+      Text(label, style: TextStyle(fontSize: 12, color: HudColors.textMuted)),
       const SizedBox(width: 4),
       Transform.scale(
         scale: 0.75,
-        child: Switch(
-          value: value,
-          onChanged: onChanged,
-          activeThumbColor: HudColors.cyan,
-          activeTrackColor: HudColors.cyan.withValues(alpha: 0.3),
-        ),
+        child: Switch(value: value, onChanged: onChanged),
       ),
     ],
   );

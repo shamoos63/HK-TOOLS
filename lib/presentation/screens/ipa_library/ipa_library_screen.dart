@@ -16,6 +16,7 @@ import '../../providers/ipa_library_providers.dart';
 import '../../providers/ui_providers.dart';
 import '../../widgets/hud_widgets.dart';
 import '../devices/device_widgets.dart';
+import '../../../core/l10n/l10n.dart';
 
 enum _Filter { all, updates, notInstalled, installed }
 
@@ -79,9 +80,9 @@ class _IpaLibraryScreenState extends ConsumerState<IpaLibraryScreen> {
                 child: TextField(
                   onChanged: (v) => setState(() => _query = v),
                   style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     isDense: true,
-                    hintText: 'Filter by name or bundle ID',
+                    hintText: tr('Filter by name or bundle ID'),
                     prefixIcon: Icon(Icons.search_rounded, size: 18),
                     border: OutlineInputBorder(),
                   ),
@@ -93,10 +94,10 @@ class _IpaLibraryScreenState extends ConsumerState<IpaLibraryScreen> {
                   padding: const EdgeInsets.only(top: 6),
                   child: HudChipTab(
                     label: switch (f) {
-                      _Filter.all => 'All ${apps.length}',
-                      _Filter.updates => 'Updates ${updates.length}',
-                      _Filter.notInstalled => 'Not on device',
-                      _Filter.installed => 'On device',
+                      _Filter.all => trf('All {0}', [apps.length]),
+                      _Filter.updates => trf('Updates {0}', [updates.length]),
+                      _Filter.notInstalled => tr('Not on device'),
+                      _Filter.installed => tr('On device'),
                     },
                     active: f == _filter,
                     enabled:
@@ -124,18 +125,19 @@ class _IpaLibraryScreenState extends ConsumerState<IpaLibraryScreen> {
                   ? EmptyState(
                       icon: Icons.inventory_2_outlined,
                       title: apps.isEmpty
-                          ? 'No IPAs in this folder yet'
-                          : 'Nothing matches',
+                          ? tr('No IPAs in this folder yet')
+                          : tr('Nothing matches'),
                       message: apps.isEmpty
-                          ? 'Download apps from the App Store section, add existing .ipa '
-                                'files, or point the library at the folder you keep them in.'
+                          ? tr(
+                              'Download apps from the App Store section, add existing .ipa files, or point the library at the folder you keep them in.',
+                            )
                           : null,
                     )
                   : ListView.separated(
                       itemCount: shown.length,
                       separatorBuilder: (_, _) => Divider(
                         height: 1,
-                        color: Colors.white.withValues(alpha: 0.05),
+                        color: HudColors.overlay.withValues(alpha: 0.05),
                       ),
                       itemBuilder: (_, i) => _AppRow(
                         app: shown[i],
@@ -188,18 +190,14 @@ class _Header extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.inventory_2_rounded,
-                color: HudColors.cyan,
-                size: 20,
-              ),
+              Icon(Icons.inventory_2_rounded, color: HudColors.cyan, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Tooltip(
-                      message: 'Show in folder',
+                      message: tr('Show in folder'),
                       child: InkWell(
                         onTap: () => Directory(folder).existsSync()
                             ? revealPath(folder)
@@ -215,8 +213,12 @@ class _Header extends ConsumerWidget {
                       ),
                     ),
                     Text(
-                      '$appCount apps · ${files.length} files · ${formatBytes(bytes, decimals: 1)}',
-                      style: const TextStyle(
+                      trf('{0} apps · {1} files · {2}', [
+                        appCount,
+                        files.length,
+                        formatBytes(bytes, decimals: 1),
+                      ]),
+                      style: TextStyle(
                         color: HudColors.textMuted,
                         fontSize: 12,
                       ),
@@ -226,13 +228,13 @@ class _Header extends ConsumerWidget {
               ),
               HudIconButton(
                 icon: Icons.drive_folder_upload_rounded,
-                tooltip: 'Change library folder',
+                tooltip: tr('Change library folder'),
                 onPressed: () async {
                   final dir = await getDirectoryPath(
                     initialDirectory: Directory(folder).existsSync()
                         ? folder
                         : null,
-                    confirmButtonText: 'Use this folder',
+                    confirmButtonText: tr('Use this folder'),
                   );
                   if (dir == null) return;
                   ref
@@ -242,12 +244,12 @@ class _Header extends ConsumerWidget {
               ),
               HudIconButton(
                 icon: Icons.add_rounded,
-                tooltip: 'Add IPA files to the library',
+                tooltip: tr('Add IPA files to the library'),
                 onPressed: () => _import(context, ref),
               ),
               HudIconButton(
                 icon: Icons.refresh_rounded,
-                tooltip: 'Rescan folder and check for updates',
+                tooltip: tr('Rescan folder and check for updates'),
                 onPressed: () {
                   ref.read(ipaLibraryProvider.notifier).rescan();
                   ref.invalidate(libraryListingsProvider);
@@ -265,8 +267,8 @@ class _Header extends ConsumerWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Keep old versions',
+                  Text(
+                    tr('Keep old versions'),
                     style: TextStyle(fontSize: 12.5),
                   ),
                   Switch(
@@ -278,13 +280,13 @@ class _Header extends ConsumerWidget {
                 ],
               ),
               if (checking)
-                const Text(
-                  'Checking App Store versions…',
+                Text(
+                  tr('Checking App Store versions…'),
                   style: TextStyle(color: HudColors.textMuted, fontSize: 12),
                 ),
               if (updates.isNotEmpty)
                 NeonButton(
-                  label: 'Update all (${updates.length})',
+                  label: trf('Update all ({0})', [updates.length]),
                   icon: Icons.system_update_rounded,
                   compact: true,
                   onPressed: () async {
@@ -303,15 +305,15 @@ class _Header extends ConsumerWidget {
 
   Future<void> _import(BuildContext context, WidgetRef ref) async {
     final files = await openFiles(
-      acceptedTypeGroups: const [
-        XTypeGroup(label: 'iOS apps', extensions: ['ipa']),
+      acceptedTypeGroups: [
+        XTypeGroup(label: tr('iOS apps'), extensions: ['ipa']),
       ],
     );
     if (files.isEmpty || !context.mounted) return;
     var n = 0;
     await runDeviceAction(
       context,
-      'Added files to the library',
+      tr('Added files to the library'),
       () async => n = await ref.read(ipaLibraryProvider.notifier).import([
         for (final f in files) f.path,
       ]),
@@ -320,7 +322,9 @@ class _Header extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${files.length - n} file(s) were already in the library folder.',
+            trf('{0} file(s) were already in the library folder.', [
+              files.length - n,
+            ]),
           ),
         ),
       );
@@ -337,22 +341,22 @@ class _TargetPicker extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (devices.isEmpty) {
-      return const HudPill(
-        'No device connected',
+      return HudPill(
+        tr('No device connected'),
         color: HudColors.textMuted,
         icon: Icons.phone_iphone_rounded,
         mono: false,
       );
     }
     return PopupMenuButton<String>(
-      tooltip: 'Install target',
+      tooltip: tr('Install target'),
       onSelected: (id) => ref.read(libraryTargetIdProvider.notifier).set(id),
       itemBuilder: (_) => [
         for (final d in devices)
           PopupMenuItem(value: d.id, child: Text(d.displayName)),
       ],
       child: HudPill(
-        'Install to: ${target?.displayName ?? '—'}',
+        trf('Install to: {0}', [target?.displayName ?? '—']),
         color: HudColors.cyan,
         icon: Icons.phone_iphone_rounded,
         mono: false,
@@ -428,29 +432,29 @@ class _AppRow extends ConsumerWidget {
                     ),
                     if (update)
                       HudPill(
-                        'Update ${listing!.version}',
+                        trf('Update {0}', [listing!.version]),
                         color: HudColors.warning,
                         icon: Icons.arrow_upward_rounded,
                       )
                     else if (listing != null)
-                      const HudPill('Latest', color: HudColors.success)
+                      HudPill(tr('Latest'), color: HudColors.success)
                     else
-                      const HudPill(
-                        'Not on App Store',
+                      HudPill(
+                        tr('Not on App Store'),
                         color: HudColors.textMuted,
                         mono: false,
                       ),
                     if (target != null)
                       onDevice == null
-                          ? const HudPill(
-                              'Not installed',
+                          ? HudPill(
+                              tr('Not installed'),
                               color: HudColors.textMuted,
                               mono: false,
                             )
                           : HudPill(
                               deviceOutdated
-                                  ? 'Device has $onDevice'
-                                  : 'On device $onDevice',
+                                  ? trf('Device has {0}', [onDevice])
+                                  : trf('On device {0}', [onDevice]),
                               color: deviceOutdated
                                   ? HudColors.purple
                                   : HudColors.cyan,
@@ -512,7 +516,7 @@ class _AppRow extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(right: 6),
               child: NeonButton(
-                label: 'Update',
+                label: tr('Update'),
                 icon: Icons.system_update_rounded,
                 variant: NeonVariant.ghost,
                 compact: true,
@@ -526,7 +530,7 @@ class _AppRow extends ConsumerWidget {
               ),
             ),
           NeonButton(
-            label: deviceOutdated ? 'Update on device' : 'Install',
+            label: deviceOutdated ? tr('Update on device') : tr('Install'),
             icon: Icons.install_mobile_rounded,
             compact: true,
             onPressed: target == null || running
@@ -534,34 +538,36 @@ class _AppRow extends ConsumerWidget {
                 : () => actions.install(latest, target!),
           ),
           PopupMenuButton<String>(
-            tooltip: 'More',
-            icon: const Icon(
+            tooltip: tr('More'),
+            icon: Icon(
               Icons.more_vert_rounded,
               size: 18,
               color: HudColors.textMuted,
             ),
             onSelected: (v) => _menu(context, ref, v),
             itemBuilder: (_) => [
-              const PopupMenuItem(
-                value: 'reveal',
-                child: Text('Show in folder'),
-              ),
+              PopupMenuItem(value: 'reveal', child: Text(tr('Show in folder'))),
               if (target != null && app.files.length > 1)
                 for (final f in app.files.skip(1))
                   PopupMenuItem(
                     value: 'install:${f.path}',
                     child: Text(
-                      'Install older v${f.version ?? '?'} (${f.build ?? ''})',
+                      trf('Install older v{0} ({1})', [
+                        f.version ?? '?',
+                        f.build ?? '',
+                      ]),
                     ),
                   ),
               if (app.files.length > 1)
                 PopupMenuItem(
                   value: 'prune',
-                  child: Text('Delete ${app.files.length - 1} older file(s)'),
+                  child: Text(
+                    trf('Delete {0} older file(s)', [app.files.length - 1]),
+                  ),
                 ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'delete',
-                child: Text('Delete from library…'),
+                child: Text(tr('Delete from library…')),
               ),
             ],
           ),
@@ -581,24 +587,25 @@ class _AppRow extends ConsumerWidget {
     } else if (v == 'prune') {
       await runDeviceAction(
         context,
-        'Older versions of ${app.name} deleted',
+        trf('Older versions of {0} deleted', [app.name]),
         () => lib.deleteFiles(app.files.skip(1).map((f) => f.path)),
       );
     } else if (v == 'delete') {
       final ok = await confirmDialog(
         context,
-        title: 'Delete ${app.name} from the library?',
-        message:
-            '${app.files.length} file(s), ${formatBytes(app.totalSize, decimals: 1)}, '
-            'will be deleted from disk:\n'
-            '${app.files.map((f) => p.basename(f.path)).join('\n')}',
-        confirmLabel: 'Delete',
+        title: trf('Delete {0} from the library?', [app.name]),
+        message: trf('{0} file(s), {1}, will be deleted from disk:\n{2}', [
+          app.files.length,
+          formatBytes(app.totalSize, decimals: 1),
+          app.files.map((f) => p.basename(f.path)).join('\n'),
+        ]),
+        confirmLabel: tr('Delete'),
         danger: true,
       );
       if (!ok || !context.mounted) return;
       await runDeviceAction(
         context,
-        '${app.name} removed from the library',
+        trf('{0} removed from the library', [app.name]),
         () => lib.deleteFiles(app.files.map((f) => f.path)),
       );
     }
@@ -609,8 +616,10 @@ class _AppRow extends ConsumerWidget {
 Future<bool> _ensureSignedIn(BuildContext context, WidgetRef ref) async {
   if (ref.read(appStoreToolMissingProvider)) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Updating needs ipatool (see the App Store section).'),
+      SnackBar(
+        content: Text(
+          tr('Updating needs ipatool (see the App Store section).'),
+        ),
       ),
     );
     return false;
@@ -622,9 +631,9 @@ Future<bool> _ensureSignedIn(BuildContext context, WidgetRef ref) async {
   if (!context.mounted) return false;
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: const Text('Sign in to the App Store to download updates.'),
+      content: Text(tr('Sign in to the App Store to download updates.')),
       action: SnackBarAction(
-        label: 'SIGN IN',
+        label: tr('SIGN IN'),
         onPressed: () =>
             ref.read(sectionProvider.notifier).set(AppSection.appStore),
       ),
@@ -645,8 +654,11 @@ class _Unreadable extends ConsumerWidget {
       child: Tooltip(
         message: bad.map((f) => '${p.basename(f.path)}: ${f.error}').join('\n'),
         child: Text(
-          '${bad.length} file(s) in the folder are not readable IPAs (hover for details).',
-          style: const TextStyle(color: HudColors.warning, fontSize: 12),
+          trf(
+            '{0} file(s) in the folder are not readable IPAs (hover for details).',
+            [bad.length],
+          ),
+          style: TextStyle(color: HudColors.warning, fontSize: 12),
         ),
       ),
     );

@@ -9,6 +9,7 @@ import '../../../domain/entities/ios_device.dart';
 import '../../providers/device_providers.dart';
 import '../../widgets/hud_widgets.dart';
 import 'device_widgets.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// AFC file explorer. The root is the device's media partition
 /// (`/private/var/mobile/Media`: DCIM, Downloads, Books, …), or with
@@ -39,8 +40,8 @@ class _FilesTabState extends ConsumerState<FilesTab> {
     final segments = _path.split('/').where((s) => s.isNotEmpty).toList();
     return DeviceCard(
       title: widget.documentsOf == null
-          ? 'Files'
-          : 'Documents · ${widget.documentsOf}',
+          ? tr('Files')
+          : trf('Documents · {0}', [widget.documentsOf]),
       icon: Icons.folder_rounded,
       fill: true,
       trailing: Row(
@@ -48,17 +49,17 @@ class _FilesTabState extends ConsumerState<FilesTab> {
         children: [
           HudIconButton(
             icon: Icons.create_new_folder_outlined,
-            tooltip: 'New folder',
+            tooltip: tr('New folder'),
             onPressed: _busy == null ? _mkdir : null,
           ),
           HudIconButton(
             icon: Icons.upload_rounded,
-            tooltip: 'Upload files here',
+            tooltip: tr('Upload files here'),
             onPressed: _busy == null ? _upload : null,
           ),
           HudIconButton(
             icon: Icons.refresh_rounded,
-            tooltip: 'Reload',
+            tooltip: tr('Reload'),
             onPressed: _reload,
           ),
         ],
@@ -70,14 +71,16 @@ class _FilesTabState extends ConsumerState<FilesTab> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _Crumb(
-                label: widget.documentsOf == null ? 'Media' : 'App',
+                label: widget.documentsOf == null ? 'Media' : tr('App'),
                 onTap: () => setState(
                   () => _path = widget.documentsOf == null ? '/' : '/Documents',
                 ),
               ),
               for (var i = 0; i < segments.length; i++) ...[
-                const Icon(
-                  Icons.chevron_right_rounded,
+                Icon(
+                  Directionality.of(context) == TextDirection.rtl
+                      ? Icons.chevron_left_rounded
+                      : Icons.chevron_right_rounded,
                   size: 16,
                   color: HudColors.textMuted,
                 ),
@@ -102,9 +105,9 @@ class _FilesTabState extends ConsumerState<FilesTab> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => DeviceError(e, onRetry: _reload),
               data: (entries) => entries.isEmpty
-                  ? const EmptyState(
+                  ? EmptyState(
                       icon: Icons.folder_off_outlined,
-                      title: 'Empty folder',
+                      title: tr('Empty folder'),
                     )
                   : ListView.builder(
                       itemCount: entries.length,
@@ -148,14 +151,14 @@ class _FilesTabState extends ConsumerState<FilesTab> {
       initialDirectory: deviceFolder(
         ref.read(deviceDataDirProvider),
         widget.device,
-        'Files',
+        tr('Files'),
       ),
-      confirmButtonText: 'Save here',
+      confirmButtonText: tr('Save here'),
     );
     if (dest == null) return;
     await _job(
-      'Downloading ${e.name}…',
-      'Saved ${e.name} to $dest',
+      trf('Downloading {0}…', [e.name]),
+      trf('Saved {0} to {1}', [e.name, dest]),
       () => ref
           .read(deviceServiceProvider)
           .pull(
@@ -172,8 +175,8 @@ class _FilesTabState extends ConsumerState<FilesTab> {
     final files = await openFiles();
     if (files.isEmpty) return;
     await _job(
-      'Uploading ${files.length} file(s)…',
-      'Uploaded ${files.length} file(s)',
+      trf('Uploading {0} file(s)…', [files.length]),
+      trf('Uploaded {0} file(s)', [files.length]),
       () async {
         for (final f in files) {
           await ref
@@ -192,13 +195,13 @@ class _FilesTabState extends ConsumerState<FilesTab> {
   Future<void> _mkdir() async {
     final name = await promptText(
       context,
-      title: 'New folder',
-      confirmLabel: 'Create',
+      title: tr('New folder'),
+      confirmLabel: tr('Create'),
     );
     if (name == null || name.trim().isEmpty) return;
     await _job(
-      'Creating folder…',
-      'Created ${name.trim()}',
+      tr('Creating folder…'),
+      trf('Created {0}', [name.trim()]),
       () => ref
           .read(deviceServiceProvider)
           .makeDirectory(
@@ -210,11 +213,15 @@ class _FilesTabState extends ConsumerState<FilesTab> {
   }
 
   Future<void> _rename(AfcEntry e) async {
-    final name = await promptText(context, title: 'Rename', initial: e.name);
+    final name = await promptText(
+      context,
+      title: tr('Rename'),
+      initial: e.name,
+    );
     if (name == null || name.trim().isEmpty || name.trim() == e.name) return;
     await _job(
-      'Renaming…',
-      'Renamed to ${name.trim()}',
+      tr('Renaming…'),
+      trf('Renamed to {0}', [name.trim()]),
       () => ref
           .read(deviceServiceProvider)
           .movePath(
@@ -229,17 +236,19 @@ class _FilesTabState extends ConsumerState<FilesTab> {
   Future<void> _delete(AfcEntry e) async {
     final ok = await confirmDialog(
       context,
-      title: 'Delete ${e.name}?',
+      title: trf('Delete {0}?', [e.name]),
       message: e.isDirectory
-          ? 'The folder must be empty. Files deleted from the device cannot be recovered.'
-          : 'Files deleted from the device cannot be recovered.',
-      confirmLabel: 'Delete',
+          ? tr(
+              'The folder must be empty. Files deleted from the device cannot be recovered.',
+            )
+          : tr('Files deleted from the device cannot be recovered.'),
+      confirmLabel: tr('Delete'),
       danger: true,
     );
     if (!ok) return;
     await _job(
-      'Deleting…',
-      'Deleted ${e.name}',
+      tr('Deleting…'),
+      trf('Deleted {0}', [e.name]),
       () => ref
           .read(deviceServiceProvider)
           .deletePath(widget.device, e.path, documentsOf: widget.documentsOf),
@@ -342,22 +351,22 @@ class _EntryRow extends StatelessWidget {
             if (onOpen != null)
               HudIconButton(
                 icon: Icons.arrow_forward_rounded,
-                tooltip: 'Open',
+                tooltip: tr('Open'),
                 onPressed: onOpen,
               ),
             HudIconButton(
               icon: Icons.download_rounded,
-              tooltip: 'Download',
+              tooltip: tr('Download'),
               onPressed: onDownload,
             ),
             HudIconButton(
               icon: Icons.drive_file_rename_outline_rounded,
-              tooltip: 'Rename',
+              tooltip: tr('Rename'),
               onPressed: onRename,
             ),
             HudIconButton(
               icon: Icons.delete_outline_rounded,
-              tooltip: 'Delete',
+              tooltip: tr('Delete'),
               color: HudColors.danger,
               onPressed: onDelete,
             ),

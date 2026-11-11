@@ -12,6 +12,7 @@ import '../../../domain/entities/ios_device.dart';
 import '../../providers/device_providers.dart';
 import '../../widgets/hud_widgets.dart';
 import 'device_widgets.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// A finished `idevicebackup2` backup: `<root>/<udid>/Info.plist`.
 class _BackupEntry {
@@ -92,8 +93,8 @@ class BackupTab extends ConsumerWidget {
     Future<void> backup({required bool full}) async {
       await jobs.run(
         full
-            ? 'Full backup of ${device.displayName}'
-            : 'Backup of ${device.displayName}',
+            ? trf('Full backup of {0}', [device.displayName])
+            : trf('Backup of {0}', [device.displayName]),
         () => svc.startBackup(device, root, full: full),
       );
       ref.invalidate(_backupsProvider(root));
@@ -102,18 +103,16 @@ class BackupTab extends ConsumerWidget {
     return ListView(
       children: [
         DeviceCard(
-          title: 'Back up ${device.displayName}',
+          title: trf('Back up {0}', [device.displayName]),
           icon: Icons.backup_rounded,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Full local backup in the iTunes / Finder format: photos, messages, app '
-                'data, settings and Health (when encrypted). Saved to:',
-                style: const TextStyle(
-                  color: HudColors.textMuted,
-                  fontSize: 13,
+                tr(
+                  'Full local backup in the iTunes / Finder format: photos, messages, app data, settings and Health (when encrypted). Saved to:',
                 ),
+                style: TextStyle(color: HudColors.textMuted, fontSize: 13),
               ),
               const SizedBox(height: 4),
               InkWell(
@@ -131,10 +130,10 @@ class BackupTab extends ConsumerWidget {
                 children: [
                   HudPill(
                     encrypted == null
-                        ? 'Encryption: unknown'
+                        ? tr('Encryption: unknown')
                         : encrypted
-                        ? 'Encrypted backups'
-                        : 'Not encrypted',
+                        ? tr('Encrypted backups')
+                        : tr('Not encrypted'),
                     color: encrypted == true
                         ? HudColors.success
                         : HudColors.warning,
@@ -145,8 +144,8 @@ class BackupTab extends ConsumerWidget {
                   if (encrypted != null)
                     NeonButton(
                       label: encrypted
-                          ? 'Turn off encryption'
-                          : 'Encrypt backups',
+                          ? tr('Turn off encryption')
+                          : tr('Encrypt backups'),
                       variant: NeonVariant.ghost,
                       compact: true,
                       onPressed: running
@@ -159,13 +158,13 @@ class BackupTab extends ConsumerWidget {
                             ),
                     ),
                   NeonButton(
-                    label: 'Back up now',
+                    label: tr('Back up now'),
                     icon: Icons.backup_rounded,
                     compact: true,
                     onPressed: running ? null : () => backup(full: false),
                   ),
                   NeonButton(
-                    label: 'Full backup',
+                    label: tr('Full backup'),
                     variant: NeonVariant.ghost,
                     compact: true,
                     onPressed: running ? null : () => backup(full: true),
@@ -181,21 +180,21 @@ class BackupTab extends ConsumerWidget {
         ],
         const SizedBox(height: 14),
         DeviceCard(
-          title: 'Backups on this computer',
+          title: tr('Backups on this computer'),
           icon: Icons.inventory_2_rounded,
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               HudIconButton(
                 icon: Icons.folder_open_rounded,
-                tooltip: 'Restore from another folder…',
+                tooltip: tr('Restore from another folder…'),
                 onPressed: running
                     ? null
                     : () => _restoreFromFolder(context, ref),
               ),
               HudIconButton(
                 icon: Icons.refresh_rounded,
-                tooltip: 'Reload',
+                tooltip: tr('Reload'),
                 onPressed: () => ref.invalidate(_backupsProvider(root)),
               ),
             ],
@@ -204,8 +203,8 @@ class BackupTab extends ConsumerWidget {
             loading: () => const LinearProgressIndicator(minHeight: 2),
             error: (e, _) => DeviceError(e),
             data: (list) => list.isEmpty
-                ? const Text(
-                    'No backups yet.',
+                ? Text(
+                    tr('No backups yet.'),
                     style: TextStyle(color: HudColors.textMuted, fontSize: 13),
                   )
                 : Column(
@@ -244,15 +243,21 @@ class BackupTab extends ConsumerWidget {
   ) async {
     final pw = await promptText(
       context,
-      title: enable ? 'Choose a backup password' : 'Current backup password',
-      confirmLabel: enable ? 'Encrypt' : 'Turn off',
+      title: enable
+          ? tr('Choose a backup password')
+          : tr('Current backup password'),
+      confirmLabel: enable ? tr('Encrypt') : tr('Turn off'),
       obscure: true,
-      hint: enable ? 'Needed to restore these backups. Do not lose it.' : null,
+      hint: enable
+          ? tr('Needed to restore these backups. Do not lose it.')
+          : null,
     );
     if (pw == null || pw.isEmpty || !context.mounted) return;
     await runDeviceAction(
       context,
-      enable ? 'Backup encryption enabled' : 'Backup encryption disabled',
+      enable
+          ? tr('Backup encryption enabled')
+          : tr('Backup encryption disabled'),
       () => ref
           .read(deviceServiceProvider)
           .backupEncryption(device, root, enable: enable, password: pw),
@@ -270,18 +275,19 @@ class BackupTab extends ConsumerWidget {
     if (!context.mounted) return;
     final ok = await confirmDialog(
       context,
-      title: 'Delete the backup of ${b.name}?',
-      message:
-          '${formatBytes(size, decimals: 1)} at ${b.dir.path} will be permanently deleted '
-          'from this computer. The device itself is not affected.',
-      confirmLabel: 'Delete backup',
+      title: trf('Delete the backup of {0}?', [b.name]),
+      message: trf(
+        '{0} at {1} will be permanently deleted from this computer. The device itself is not affected.',
+        [formatBytes(size, decimals: 1), b.dir.path],
+      ),
+      confirmLabel: tr('Delete backup'),
       danger: true,
       typeToConfirm: 'DELETE',
     );
     if (!ok || !context.mounted) return;
     await runDeviceAction(
       context,
-      'Backup of ${b.name} deleted',
+      trf('Backup of {0} deleted', [b.name]),
       () => b.dir.delete(recursive: true),
     );
     ref.invalidate(_backupsProvider(root));
@@ -300,12 +306,14 @@ class BackupTab extends ConsumerWidget {
   }
 
   Future<void> _restoreFromFolder(BuildContext context, WidgetRef ref) async {
-    final dir = await getDirectoryPath(confirmButtonText: 'Use this backup');
+    final dir = await getDirectoryPath(
+      confirmButtonText: tr('Use this backup'),
+    );
     if (dir == null || !context.mounted) return;
     if (!File(p.join(dir, 'Info.plist')).existsSync()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pick the backup folder that contains Info.plist.'),
+        SnackBar(
+          content: Text(tr('Pick the backup folder that contains Info.plist.')),
         ),
       );
       return;
@@ -328,26 +336,27 @@ class BackupTab extends ConsumerWidget {
   ) async {
     final ok = await confirmDialog(
       context,
-      title: 'Restore "$name" to ${device.displayName}?',
-      message:
-          'All current data on ${device.displayName} is replaced with the backup. '
-          'Turn off Find My on the device first. The device reboots when done.',
-      confirmLabel: 'Restore backup',
+      title: trf('Restore "{0}" to {1}?', [name, device.displayName]),
+      message: trf(
+        'All current data on {0} is replaced with the backup. Turn off Find My on the device first. The device reboots when done.',
+        [device.displayName],
+      ),
+      confirmLabel: tr('Restore backup'),
       danger: true,
       typeToConfirm: 'RESTORE',
     );
     if (!ok || !context.mounted) return;
     final pw = await promptText(
       context,
-      title: 'Backup password (leave empty if not encrypted)',
-      confirmLabel: 'Start',
+      title: tr('Backup password (leave empty if not encrypted)'),
+      confirmLabel: tr('Start'),
       obscure: true,
     );
     if (pw == null) return;
     await ref
         .read(backupJobProvider.notifier)
         .run(
-          'Restoring backup to ${device.displayName}',
+          trf('Restoring backup to {0}', [device.displayName]),
           () => ref
               .read(deviceServiceProvider)
               .startBackupRestore(
@@ -413,15 +422,15 @@ class _BackupRow extends StatelessWidget {
               ],
             ),
           ),
-          if (isThisDevice) const HudPill('This device', color: HudColors.cyan),
+          if (isThisDevice) HudPill(tr('This device'), color: HudColors.cyan),
           const SizedBox(width: 8),
           HudIconButton(
             icon: Icons.folder_open_rounded,
-            tooltip: 'Show in folder',
+            tooltip: tr('Show in folder'),
             onPressed: onReveal,
           ),
           NeonButton(
-            label: 'Restore',
+            label: tr('Restore'),
             icon: Icons.settings_backup_restore_rounded,
             variant: NeonVariant.ghost,
             compact: true,
@@ -430,7 +439,7 @@ class _BackupRow extends StatelessWidget {
           const SizedBox(width: 4),
           HudIconButton(
             icon: Icons.delete_outline_rounded,
-            tooltip: 'Delete this backup',
+            tooltip: tr('Delete this backup'),
             color: HudColors.danger,
             onPressed: onDelete,
           ),
@@ -462,11 +471,11 @@ class _JobCard extends StatelessWidget {
       },
       trailing: onCancel == null
           ? HudPill(
-              job.status == JobStatus.succeeded ? 'Completed' : 'Failed',
+              job.status == JobStatus.succeeded ? 'Completed' : tr('Failed'),
               color: color,
             )
           : NeonButton(
-              label: 'Cancel',
+              label: tr('Cancel'),
               variant: NeonVariant.danger,
               compact: true,
               onPressed: onCancel,
@@ -483,7 +492,7 @@ class _JobCard extends StatelessWidget {
             height: 160,
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.35),
+              color: HudColors.overlay.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(8),
             ),
             child: ListView(

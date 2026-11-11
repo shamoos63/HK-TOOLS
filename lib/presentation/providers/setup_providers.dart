@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/l10n/l10n.dart';
+
 import '../../services/setup/dependency_manager.dart';
 import 'device_providers.dart';
 
@@ -45,7 +47,7 @@ class SetupController extends Notifier<Map<Dependency, InstallState>> {
     final ordered = Dependency.values.where(deps.contains).toList();
     final manager = ref.read(dependencyManagerProvider);
     for (final d in ordered) {
-      state = {...state, d: const Installing('Starting…', null)};
+      state = {...state, d: Installing(tr('Starting…'), null)};
       try {
         await manager.install(
           d,

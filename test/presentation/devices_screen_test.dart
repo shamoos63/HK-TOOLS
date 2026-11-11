@@ -11,6 +11,7 @@ import 'package:hk_ipsw_manager/presentation/providers/repository_providers.dart
 import 'package:hk_ipsw_manager/presentation/screens/devices/devices_screen.dart';
 import 'package:hk_ipsw_manager/presentation/widgets/hud_widgets.dart';
 import 'package:hk_ipsw_manager/services/catalog/catalog_index.dart';
+import 'package:hk_ipsw_manager/services/device/device_parsers.dart';
 import 'package:hk_ipsw_manager/services/device/device_toolchain.dart';
 import 'package:hk_ipsw_manager/services/repository/repository_inventory.dart';
 import 'package:hk_ipsw_manager/services/restore/restore_runner.dart';
@@ -106,6 +107,7 @@ Widget _app(
       RepositoryInventory.analyze('/tmp/hk_repo', const [], CatalogIndex.empty),
     ),
     deviceTabProvider.overrideWith(() => ValueController(tab)),
+    deviceImageProvider.overrideWith((ref, key) async => null),
     appIconsProvider.overrideWith(_Icons.new),
     deviceSetupDoneProvider.overrideWith((ref, id) async => false),
     deviceBatteryProvider.overrideWith(
@@ -168,7 +170,7 @@ void main() {
 
   testWidgets('empty state', (tester) async {
     await pump(tester, _app(const DevicesState()));
-    expect(find.text('No device connected'), findsOneWidget);
+    expect(find.text('Waiting for a device'), findsOneWidget);
   });
 
   testWidgets('tools missing', (tester) async {
@@ -205,7 +207,7 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('ACTIVATION & SETUP'), findsOneWidget);
+    expect(find.text('Activation & Setup'), findsOneWidget);
     expect(find.text('Unactivated'), findsWidgets);
     expect(find.text('Activate'), findsOneWidget);
     expect(find.text('In Setup Assistant'), findsOneWidget);
@@ -259,7 +261,47 @@ void main() {
       ),
     );
     expect(tester.takeException(), isNull);
-    expect(find.text('Erasing and flashing firmware…'), findsOneWidget);
-    expect(find.text('40%'), findsOneWidget);
+    expect(find.text('Erase and restore'), findsOneWidget);
+    expect(find.text('Installing iOS'), findsWidgets);
+    // Overall progress, not the step's own 40%.
+    expect(find.text('34%'), findsOneWidget);
+    // The raw log stays hidden until asked for.
+    await tester.scrollUntilVisible(
+      find.text('Show technical details'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('Show technical details'), findsOneWidget);
+  });
+
+  testWidgets('failed restore explains what happened', (tester) async {
+    await pump(
+      tester,
+      _app(
+        const DevicesState(),
+        restore: RestoreState(
+          status: JobStatus.failed,
+          request: const RestoreRequest(
+            ipswPath: '/tmp/fw.ipsw',
+            device: _phone,
+            erase: false,
+            cacheDirectory: '/tmp/cache',
+          ),
+          step: RestoreStep.detect,
+          log: const [
+            RestoreLogEvent(
+              'ERROR: Unable to get SHSH blobs for this device',
+              isError: true,
+            ),
+          ],
+          startedAt: DateTime(2026),
+          finishedAt: DateTime(2026),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    expect(find.text('Restore failed'), findsOneWidget);
+    expect(find.text('Apple is not approving this firmware'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
   });
 }

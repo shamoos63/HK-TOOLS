@@ -10,6 +10,7 @@ import '../../providers/download_providers.dart';
 import '../../providers/ui_providers.dart';
 import '../../widgets/download_feedback.dart';
 import '../../widgets/hud_widgets.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// One physical IPSW payload with every device that shares it.
 class FirmwareGroupTile extends ConsumerStatefulWidget {
@@ -65,12 +66,12 @@ class _FirmwareGroupTileState extends ConsumerState<FirmwareGroupTile> {
             color: selected
                 ? HudColors.cyan.withValues(alpha: 0.08)
                 : _hover
-                ? Colors.white.withValues(alpha: 0.04)
-                : Colors.white.withValues(alpha: 0.015),
+                ? HudColors.overlay.withValues(alpha: 0.04)
+                : HudColors.overlay.withValues(alpha: 0.015),
             border: Border.all(
               color: selected
                   ? HudColors.cyan.withValues(alpha: 0.5)
-                  : Colors.white.withValues(alpha: 0.06),
+                  : HudColors.overlay.withValues(alpha: 0.06),
             ),
           ),
           child: Row(
@@ -105,11 +106,15 @@ class _FirmwareGroupTileState extends ConsumerState<FirmwareGroupTile> {
                   children: [
                     if (g.isShared) ...[
                       Tooltip(
-                        message:
-                            'One payload serves ${g.deviceIdentifiers.length} devices:\n'
-                            '${g.deviceIdentifiers.map(index.displayName).toSet().join('\n')}',
+                        message: trf('One payload serves {0} devices:\n{1}', [
+                          g.deviceIdentifiers.length,
+                          g.deviceIdentifiers
+                              .map(index.displayName)
+                              .toSet()
+                              .join('\n'),
+                        ]),
                         child: HudPill(
-                          'SHARED ×${g.deviceIdentifiers.length}',
+                          trf('SHARED ×{0}', [g.deviceIdentifiers.length]),
                           color: HudColors.purple,
                           icon: Icons.link_rounded,
                         ),
@@ -124,7 +129,7 @@ class _FirmwareGroupTileState extends ConsumerState<FirmwareGroupTile> {
                           for (final n in names.take(3)) _DeviceChip(n),
                           if (names.length > 3)
                             _DeviceChip(
-                              '+${names.length - 3} more',
+                              trf('+{0} more', [names.length - 3]),
                               muted: true,
                             ),
                         ],
@@ -149,12 +154,12 @@ class _FirmwareGroupTileState extends ConsumerState<FirmwareGroupTile> {
               SizedBox(
                 width: 82,
                 child: r.signed
-                    ? const HudPill(
-                        'SIGNED',
+                    ? HudPill(
+                        tr('SIGNED'),
                         color: HudColors.success,
                         icon: Icons.verified_rounded,
                       )
-                    : const HudPill('UNSIGNED', color: HudColors.textMuted),
+                    : HudPill(tr('UNSIGNED'), color: HudColors.textMuted),
               ),
               SizedBox(
                 width: 84,
@@ -194,8 +199,8 @@ class _DeviceChip extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(20),
-      color: Colors.white.withValues(alpha: muted ? 0.02 : 0.05),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      color: HudColors.overlay.withValues(alpha: muted ? 0.02 : 0.05),
+      border: Border.all(color: HudColors.overlay.withValues(alpha: 0.08)),
     ),
     child: Text(
       label,
@@ -236,7 +241,7 @@ class _HudCheckbox extends StatelessWidget {
           : null,
     ),
     child: checked
-        ? const Icon(Icons.check_rounded, size: 14, color: HudColors.background)
+        ? Icon(Icons.check_rounded, size: 14, color: HudColors.background)
         : null,
   );
 }
@@ -255,7 +260,7 @@ class _TaskAction extends ConsumerWidget {
       return Align(
         alignment: Alignment.centerRight,
         child: NeonButton(
-          label: 'GET',
+          label: tr('GET'),
           icon: Icons.download_rounded,
           compact: true,
           variant: NeonVariant.ghost,
@@ -266,12 +271,12 @@ class _TaskAction extends ConsumerWidget {
     final (label, color) = switch (t.status) {
       DownloadStatus.completed
           when t.verification == VerificationState.passed =>
-        ('VERIFIED', HudColors.success),
-      DownloadStatus.completed => ('STORED', HudColors.success),
-      DownloadStatus.queued => ('QUEUED', HudColors.purple),
-      DownloadStatus.paused => ('PAUSED', HudColors.warning),
-      DownloadStatus.failed => ('FAILED', HudColors.danger),
-      DownloadStatus.verifying => ('SHA1…', HudColors.cyan),
+        (tr('VERIFIED'), HudColors.success),
+      DownloadStatus.completed => (tr('STORED'), HudColors.success),
+      DownloadStatus.queued => (tr('QUEUED'), HudColors.purple),
+      DownloadStatus.paused => (tr('PAUSED'), HudColors.warning),
+      DownloadStatus.failed => (tr('FAILED'), HudColors.danger),
+      DownloadStatus.verifying => (tr('SHA1…'), HudColors.cyan),
       _ => ('${(t.fraction * 100).toStringAsFixed(0)}%', HudColors.cyan),
     };
     return Align(

@@ -11,6 +11,7 @@ import '../../../domain/entities/ios_device.dart';
 import '../../providers/device_providers.dart';
 import '../../widgets/hud_widgets.dart';
 import 'device_widgets.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Screenshots and a live view built from back-to-back screenshots (works on
 /// every iOS version that supports screenshotr, no AirPlay needed).
@@ -97,7 +98,7 @@ class _ScreenTabState extends ConsumerState<ScreenTab> {
         .split('.')
         .first;
     final path = p.join(dir, 'Screenshot_$stamp.png');
-    await runDeviceAction(context, 'Saved $path', () async {
+    await runDeviceAction(context, trf('Saved {0}', [path]), () async {
       await Directory(dir).create(recursive: true);
       await File(path).writeAsBytes(frame);
     });
@@ -110,7 +111,7 @@ class _ScreenTabState extends ConsumerState<ScreenTab> {
         ? _frames * 1000 / _clock.elapsedMilliseconds
         : null;
     return DeviceCard(
-      title: 'Screen',
+      title: tr('Screen'),
       icon: Icons.screenshot_monitor_rounded,
       fill: true,
       trailing: Row(
@@ -120,12 +121,12 @@ class _ScreenTabState extends ConsumerState<ScreenTab> {
             Padding(
               padding: const EdgeInsets.only(right: 10),
               child: Text(
-                '${fps.toStringAsFixed(1)} fps',
+                trf('{0} fps', [fps.toStringAsFixed(1)]),
                 style: HudTheme.telemetry(size: 12),
               ),
             ),
           NeonButton(
-            label: _live ? 'Stop live' : 'Live view',
+            label: _live ? tr('Stop live') : tr('Live view'),
             icon: _live ? Icons.stop_rounded : Icons.play_arrow_rounded,
             variant: _live ? NeonVariant.danger : NeonVariant.primary,
             compact: true,
@@ -133,7 +134,7 @@ class _ScreenTabState extends ConsumerState<ScreenTab> {
           ),
           const SizedBox(width: 8),
           NeonButton(
-            label: 'Screenshot',
+            label: tr('Screenshot'),
             icon: Icons.camera_alt_rounded,
             variant: NeonVariant.ghost,
             compact: true,
@@ -141,7 +142,7 @@ class _ScreenTabState extends ConsumerState<ScreenTab> {
           ),
           const SizedBox(width: 8),
           NeonButton(
-            label: 'Save',
+            label: tr('Save'),
             icon: Icons.save_alt_rounded,
             variant: NeonVariant.ghost,
             compact: true,
@@ -154,9 +155,10 @@ class _ScreenTabState extends ConsumerState<ScreenTab> {
         children: [
           if (_error != null) ...[
             DeviceError(_error!),
-            const Text(
-              'Screenshots need a mounted Developer Disk Image. Mount one from the '
-              'Tools tab (iOS 16+ also needs Developer Mode enabled).',
+            Text(
+              tr(
+                'Screenshots need a mounted Developer Disk Image. Mount one from the Tools tab (iOS 16+ also needs Developer Mode enabled).',
+              ),
               style: TextStyle(color: HudColors.textMuted, fontSize: 12),
             ),
             const SizedBox(height: 8),
@@ -166,8 +168,8 @@ class _ScreenTabState extends ConsumerState<ScreenTab> {
               child: _frame == null
                   ? EmptyState(
                       icon: Icons.phone_iphone_rounded,
-                      title: _busy ? 'Capturing…' : 'No capture yet',
-                      message: 'Take a screenshot or start the live view.',
+                      title: _busy ? tr('Capturing…') : tr('No capture yet'),
+                      message: tr('Take a screenshot or start the live view.'),
                     )
                   : Container(
                       decoration: BoxDecoration(

@@ -18,8 +18,30 @@ class MainFlutterWindow: NSWindow {
     self.contentMinSize = NSSize(width: 1180, height: 720)
     self.title = "HK Tools"
     self.titlebarAppearsTransparent = true
-    self.backgroundColor = NSColor(red: 0.043, green: 0.059, blue: 0.098, alpha: 1)
-    self.appearance = NSAppearance(named: .darkAqua)
+    // Title bar takes the app's background: graphite in dark mode, light grey
+    // in light mode (matches HudPalette in hud_theme.dart).
+    self.backgroundColor = NSColor(name: nil) { appearance in
+      appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        ? NSColor(red: 0.067, green: 0.075, blue: 0.090, alpha: 1)
+        : NSColor(red: 0.957, green: 0.961, blue: 0.969, alpha: 1)
+    }
+
+    // The app picks light / dark (Settings › Appearance); "system" follows
+    // macOS. Without this the title bar would not follow an override.
+    let channel = FlutterMethodChannel(
+      name: "hk_tools/window", binaryMessenger: flutterViewController.engine.binaryMessenger)
+    channel.setMethodCallHandler { [weak self] call, result in
+      if call.method == "setAppearance" {
+        switch call.arguments as? String {
+        case "light": self?.appearance = NSAppearance(named: .aqua)
+        case "dark": self?.appearance = NSAppearance(named: .darkAqua)
+        default: self?.appearance = nil
+        }
+        result(nil)
+      } else {
+        result(FlutterMethodNotImplemented)
+      }
+    }
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 

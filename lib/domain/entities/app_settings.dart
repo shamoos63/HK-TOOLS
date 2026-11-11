@@ -1,5 +1,11 @@
 import 'dart:io';
 
+/// Light / dark appearance.
+enum AppearanceMode { system, light, dark }
+
+/// Interface language.
+enum AppLanguage { system, english, arabic }
+
 /// User preferences (Settings screen).
 class AppSettings {
   const AppSettings({
@@ -20,6 +26,8 @@ class AppSettings {
     this.checkToolsAtStartup = true,
     this.galleryPrivacyMode = false,
     this.reducedEffects,
+    this.appearance = AppearanceMode.system,
+    this.language = AppLanguage.system,
   });
 
   /// Repository folder downloads land in (e.g. `D:\Apple_Firmwares`).
@@ -68,6 +76,12 @@ class AppSettings {
   /// effects as bright, washed-out areas.
   final bool? reducedEffects;
 
+  /// Light or dark; `system` follows the computer's setting.
+  final AppearanceMode appearance;
+
+  /// `system` follows the computer's language (Arabic or English).
+  final AppLanguage language;
+
   bool get effectiveReducedEffects => reducedEffects ?? Platform.isWindows;
 
   /// Windows renders larger at the common 125–150% display scaling, so the
@@ -94,6 +108,8 @@ class AppSettings {
     bool? checkToolsAtStartup,
     bool? galleryPrivacyMode,
     bool? Function()? reducedEffects,
+    AppearanceMode? appearance,
+    AppLanguage? language,
   }) => AppSettings(
     targetDirectory: targetDirectory ?? this.targetDirectory,
     tempDirectory: tempDirectory != null ? tempDirectory() : this.tempDirectory,
@@ -120,6 +136,8 @@ class AppSettings {
     reducedEffects: reducedEffects != null
         ? reducedEffects()
         : this.reducedEffects,
+    appearance: appearance ?? this.appearance,
+    language: language ?? this.language,
   );
 
   factory AppSettings.fromJson(
@@ -147,6 +165,16 @@ class AppSettings {
     checkToolsAtStartup: json['checkToolsAtStartup'] as bool? ?? true,
     galleryPrivacyMode: json['galleryPrivacyMode'] as bool? ?? false,
     reducedEffects: json['reducedEffects'] as bool?,
+    appearance:
+        AppearanceMode.values
+            .where((m) => m.name == json['appearance'])
+            .firstOrNull ??
+        AppearanceMode.system,
+    language:
+        AppLanguage.values
+            .where((m) => m.name == json['language'])
+            .firstOrNull ??
+        AppLanguage.system,
   );
 
   Map<String, dynamic> toJson() => {
@@ -167,5 +195,7 @@ class AppSettings {
     'checkToolsAtStartup': checkToolsAtStartup,
     'galleryPrivacyMode': galleryPrivacyMode,
     'reducedEffects': reducedEffects,
+    'appearance': appearance.name,
+    'language': language.name,
   };
 }

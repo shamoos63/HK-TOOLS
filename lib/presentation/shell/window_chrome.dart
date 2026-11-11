@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../core/theme/hud_theme.dart';
+import '../../core/l10n/l10n.dart';
 
 /// On Windows the system title bar is hidden and HK Tools draws its own
 /// minimize / maximize / close buttons in the header. macOS keeps its native
@@ -126,12 +127,12 @@ class _WindowControlsState extends State<WindowControls> with WindowListener {
     mainAxisSize: MainAxisSize.min,
     children: [
       _ChromeButton(
-        tooltip: 'Minimize',
+        tooltip: tr('Minimize'),
         icon: Icons.remove_rounded,
         onPressed: windowManager.minimize,
       ),
       _ChromeButton(
-        tooltip: _maximized ? 'Restore' : 'Maximize',
+        tooltip: _maximized ? tr('Restore') : tr('Maximize'),
         icon: _maximized
             ? Icons.filter_none_rounded
             : Icons.crop_square_rounded,
@@ -139,7 +140,7 @@ class _WindowControlsState extends State<WindowControls> with WindowListener {
         onPressed: _toggleMaximize,
       ),
       _ChromeButton(
-        tooltip: 'Close',
+        tooltip: tr('Close'),
         icon: Icons.close_rounded,
         hoverColor: const Color(0xFFE81123),
         onPressed: windowManager.close,

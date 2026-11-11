@@ -1,3 +1,5 @@
+import '../../core/l10n/l10n.dart';
+
 /// Apple OS families served by IPSW.me.
 enum PlatformType {
   iOS('iOS'),
@@ -50,7 +52,10 @@ enum LibraryCategory {
   iPad('iPad'),
   others('Others');
 
-  const LibraryCategory(this.label);
+  const LibraryCategory(this._label);
 
-  final String label;
+  final String _label;
+
+  /// In the interface language.
+  String get label => tr(_label);
 }

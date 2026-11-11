@@ -11,6 +11,7 @@ import '../../../services/device/contacts_service.dart';
 import '../../providers/device_providers.dart';
 import '../../widgets/hud_widgets.dart';
 import 'device_widgets.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Backups of a device that may hold its contacts, newest first.
 final contactsSourcesProvider = FutureProvider.autoDispose
@@ -80,10 +81,10 @@ class _ContactsTabState extends ConsumerState<ContactsTab> {
                   ? GlassPanel(
                       child: EmptyState(
                         icon: Icons.contacts_rounded,
-                        title: 'No backup of this device yet',
-                        message:
-                            'Contacts are read from a local backup. Press "Back up '
-                            'now" to make one (it is also useful on its own).',
+                        title: tr('No backup of this device yet'),
+                        message: tr(
+                          'Contacts are read from a local backup. Press "Back up now" to make one (it is also useful on its own).',
+                        ),
                       ),
                     )
                   : _ContactsBody(
@@ -121,7 +122,7 @@ class _ContactsTabState extends ConsumerState<ContactsTab> {
     await ref
         .read(backupJobProvider.notifier)
         .run(
-          'Backup of ${widget.device.displayName}',
+          trf('Backup of {0}', [widget.device.displayName]),
           () =>
               ref.read(deviceServiceProvider).startBackup(widget.device, root),
         );
@@ -152,10 +153,14 @@ class _SourceBar extends StatelessWidget {
   static String label(ContactsSource s) {
     final d = s.date;
     final when = d == null
-        ? 'unknown date'
+        ? tr('unknown date')
         : '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} '
               '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-    return '${s.origin} backup · $when${s.encrypted ? ' · encrypted' : ''}';
+    return trf('{0} backup · {1}{2}', [
+      s.origin,
+      when,
+      s.encrypted ? ' · encrypted' : '',
+    ]);
   }
 
   @override
@@ -166,16 +171,16 @@ class _SourceBar extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(Icons.contacts_rounded, size: 18, color: HudColors.cyan),
+            Icon(Icons.contacts_rounded, size: 18, color: HudColors.cyan),
             const SizedBox(width: 10),
             Expanded(
               child: source == null
-                  ? const Text(
-                      'No backup found',
+                  ? Text(
+                      tr('No backup found'),
                       style: TextStyle(color: HudColors.textMuted),
                     )
                   : PopupMenuButton<ContactsSource>(
-                      tooltip: 'Choose backup',
+                      tooltip: tr('Choose backup'),
                       onSelected: onPick,
                       itemBuilder: (_) => [
                         for (final s in sources)
@@ -194,7 +199,7 @@ class _SourceBar extends StatelessWidget {
                             ),
                           ),
                           if (sources.length > 1)
-                            const Icon(
+                            Icon(
                               Icons.arrow_drop_down_rounded,
                               color: HudColors.textMuted,
                             ),
@@ -203,7 +208,7 @@ class _SourceBar extends StatelessWidget {
                     ),
             ),
             NeonButton(
-              label: backingUp ? 'Backing up…' : 'Back up now',
+              label: backingUp ? tr('Backing up…') : tr('Back up now'),
               icon: Icons.backup_rounded,
               variant: NeonVariant.ghost,
               compact: true,
@@ -216,9 +221,10 @@ class _SourceBar extends StatelessWidget {
           GlowProgressBar(value: progress ?? 0, height: 4),
         ],
         const SizedBox(height: 6),
-        const Text(
-          'Read-only view of the contacts saved in the device\'s local backup. '
-          'Nothing on the device is changed.',
+        Text(
+          tr(
+            'Read-only view of the contacts saved in the device\'s local backup. Nothing on the device is changed.',
+          ),
           style: TextStyle(color: HudColors.textMuted, fontSize: 11.5),
         ),
       ],
@@ -302,9 +308,9 @@ class _ContactsBody extends ConsumerWidget {
                     TextField(
                       onChanged: onQuery,
                       style: const TextStyle(fontSize: 13),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         isDense: true,
-                        hintText: 'Search name, number, email',
+                        hintText: tr('Search name, number, email'),
                         prefixIcon: Icon(Icons.search_rounded, size: 18),
                         border: OutlineInputBorder(),
                       ),
@@ -313,17 +319,17 @@ class _ContactsBody extends ConsumerWidget {
                     Wrap(
                       children: [
                         HudChipTab(
-                          label: 'All ${all.length}',
+                          label: trf('All {0}', [all.length]),
                           active: filter == _Filter.all,
                           onTap: () => onFilter(_Filter.all),
                         ),
                         HudChipTab(
-                          label: 'Duplicates ${dupIds.length}',
+                          label: trf('Duplicates {0}', [dupIds.length]),
                           active: filter == _Filter.duplicates,
                           onTap: () => onFilter(_Filter.duplicates),
                         ),
                         HudChipTab(
-                          label: 'No phone',
+                          label: tr('No phone'),
                           active: filter == _Filter.noPhone,
                           onTap: () => onFilter(_Filter.noPhone),
                         ),
@@ -346,29 +352,33 @@ class _ContactsBody extends ConsumerWidget {
                             checked.isEmpty
                                 ? '${shown.length} shown'
                                 : '${checked.length} selected',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               color: HudColors.textMuted,
                             ),
                           ),
                         ),
                         PopupMenuButton<String>(
-                          tooltip: 'Export',
+                          tooltip: tr('Export'),
                           enabled: exportSet.isNotEmpty,
                           onSelected: (fmt) => _export(context, exportSet, fmt),
                           itemBuilder: (_) => [
                             PopupMenuItem(
                               value: 'vcf',
                               child: Text(
-                                'Export ${exportSet.length} as vCard (.vcf)',
+                                trf('Export {0} as vCard (.vcf)', [
+                                  exportSet.length,
+                                ]),
                               ),
                             ),
                             PopupMenuItem(
                               value: 'csv',
-                              child: Text('Export ${exportSet.length} as CSV'),
+                              child: Text(
+                                trf('Export {0} as CSV', [exportSet.length]),
+                              ),
                             ),
                           ],
-                          child: const Padding(
+                          child: Padding(
                             padding: EdgeInsets.symmetric(
                               horizontal: 6,
                               vertical: 4,
@@ -383,7 +393,7 @@ class _ContactsBody extends ConsumerWidget {
                                 ),
                                 SizedBox(width: 4),
                                 Text(
-                                  'Export',
+                                  tr('Export'),
                                   style: TextStyle(
                                     color: HudColors.cyan,
                                     fontSize: 12.5,
@@ -397,9 +407,9 @@ class _ContactsBody extends ConsumerWidget {
                     ),
                     Expanded(
                       child: shown.isEmpty
-                          ? const Center(
+                          ? Center(
                               child: Text(
-                                'No contacts',
+                                tr('No contacts'),
                                 style: TextStyle(color: HudColors.textMuted),
                               ),
                             )
@@ -423,10 +433,10 @@ class _ContactsBody extends ConsumerWidget {
             const SizedBox(width: 14),
             Expanded(
               child: detail == null
-                  ? const GlassPanel(
+                  ? GlassPanel(
                       child: EmptyState(
                         icon: Icons.person_outline_rounded,
-                        title: 'Select a contact',
+                        title: tr('Select a contact'),
                       ),
                     )
                   : _ContactDetail(
@@ -457,14 +467,17 @@ class _ContactsBody extends ConsumerWidget {
       suggestedName: 'Contacts_$stamp.$fmt',
       acceptedTypeGroups: [
         fmt == 'vcf'
-            ? const XTypeGroup(label: 'vCard', extensions: ['vcf'])
-            : const XTypeGroup(label: 'CSV', extensions: ['csv']),
+            ? XTypeGroup(label: tr('vCard'), extensions: ['vcf'])
+            : XTypeGroup(label: tr('CSV'), extensions: ['csv']),
       ],
     );
     if (loc == null || !context.mounted) return;
     final ok = await runDeviceAction(
       context,
-      'Exported ${contacts.length} contact(s) to ${p.basename(loc.path)}',
+      trf('Exported {0} contact(s) to {1}', [
+        contacts.length,
+        p.basename(loc.path),
+      ]),
       () => File(loc.path)
           .writeAsString(fmt == 'vcf' ? toVCard(contacts) : toCsv(contacts)),
     );
@@ -572,8 +585,8 @@ class _ContactTile extends StatelessWidget {
             ),
           ),
           if (duplicate)
-            const Tooltip(
-              message: 'Shares a number or email with another contact',
+            Tooltip(
+              message: tr('Shares a number or email with another contact'),
               child: Icon(
                 Icons.copy_all_rounded,
                 size: 15,
@@ -631,7 +644,7 @@ class _ContactDetail extends StatelessWidget {
                           ?c.organization,
                           ?c.department,
                         ].join(' · '),
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: HudColors.textMuted,
                           fontSize: 13,
                         ),
@@ -639,7 +652,7 @@ class _ContactDetail extends StatelessWidget {
                     if (c.nickname != null)
                       Text(
                         '"${c.nickname}"',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: HudColors.textMuted,
                           fontSize: 12.5,
                         ),
@@ -651,21 +664,25 @@ class _ContactDetail extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           InfoTable([
-            for (final t in c.phones) (lbl('Phone', t.label), t.value),
-            for (final e in c.emails) (lbl('Email', e.label), e.value),
-            for (final a in c.addresses) (lbl('Address', a.label), a.oneLine),
-            for (final u in c.urls) (lbl('Website', u.label), u.value),
-            ('Birthday', c.birthday == null ? null : _date(c.birthday!)),
-            ('Note', c.note),
-            ('Created', c.created == null ? null : _date(c.created!.toLocal())),
+            for (final t in c.phones) (lbl(tr('Phone'), t.label), t.value),
+            for (final e in c.emails) (lbl(tr('Email'), e.label), e.value),
+            for (final a in c.addresses)
+              (lbl(tr('Address'), a.label), a.oneLine),
+            for (final u in c.urls) (lbl(tr('Website'), u.label), u.value),
+            (tr('Birthday'), c.birthday == null ? null : _date(c.birthday!)),
+            (tr('Note'), c.note),
             (
-              'Modified',
+              tr('Created'),
+              c.created == null ? null : _date(c.created!.toLocal()),
+            ),
+            (
+              tr('Modified'),
               c.modified == null ? null : _date(c.modified!.toLocal()),
             ),
           ], labelWidth: 150),
           if (duplicates.isNotEmpty) ...[
             const SizedBox(height: 18),
-            const HudLabel('Possible duplicates', color: HudColors.warning),
+            HudLabel(tr('Possible duplicates'), color: HudColors.warning),
             const SizedBox(height: 6),
             for (final d in duplicates)
               ListTile(

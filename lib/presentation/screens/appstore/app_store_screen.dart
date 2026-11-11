@@ -15,6 +15,7 @@ import '../../providers/device_providers.dart';
 import '../../providers/ui_providers.dart';
 import '../../widgets/hud_widgets.dart';
 import '../devices/device_widgets.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Search the App Store, download `.ipa` files (latest or older versions) with
 /// an Apple ID, and install them on a connected device.
@@ -42,12 +43,11 @@ class AppStoreScreen extends ConsumerWidget {
                           child: EmptyState(
                             icon: Icons.storefront_rounded,
                             title: account.isLoading
-                                ? 'Checking App Store session…'
-                                : 'Sign in to browse the App Store',
-                            message:
-                                'Search and download any app version your Apple ID can get. '
-                                'Free apps are claimed automatically; paid apps must already '
-                                'be purchased.',
+                                ? tr('Checking App Store session…')
+                                : tr('Sign in to browse the App Store'),
+                            message: tr(
+                              'Search and download any app version your Apple ID can get. Free apps are claimed automatically; paid apps must already be purchased.',
+                            ),
                           ),
                         )
                       : const _Browser(),
@@ -86,10 +86,7 @@ class _AccountBar extends ConsumerWidget {
                 : account.hasError
                 ? Text(
                     '${account.error}',
-                    style: const TextStyle(
-                      color: HudColors.danger,
-                      fontSize: 12.5,
-                    ),
+                    style: TextStyle(color: HudColors.danger, fontSize: 12.5),
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,7 +97,7 @@ class _AccountBar extends ConsumerWidget {
                       ),
                       Text(
                         a == null
-                            ? 'Apple ID required for App Store downloads'
+                            ? tr('Apple ID required for App Store downloads')
                             : a.email,
                         style: HudTheme.telemetry(
                           size: 12,
@@ -112,7 +109,7 @@ class _AccountBar extends ConsumerWidget {
           ),
           if (a == null)
             NeonButton(
-              label: 'Sign in with Apple ID',
+              label: tr('Sign in with Apple ID'),
               icon: Icons.login_rounded,
               compact: true,
               onPressed: () => showDialog<void>(
@@ -123,22 +120,23 @@ class _AccountBar extends ConsumerWidget {
             )
           else
             NeonButton(
-              label: 'Sign out',
+              label: tr('Sign out'),
               icon: Icons.logout_rounded,
               variant: NeonVariant.ghost,
               compact: true,
               onPressed: () async {
                 if (await confirmDialog(
                       context,
-                      title: 'Sign out of the App Store?',
-                      message:
-                          'The saved session is removed from this computer.',
-                      confirmLabel: 'Sign out',
+                      title: tr('Sign out of the App Store?'),
+                      message: tr(
+                        'The saved session is removed from this computer.',
+                      ),
+                      confirmLabel: tr('Sign out'),
                     ) &&
                     context.mounted) {
                   await runDeviceAction(
                     context,
-                    'Signed out',
+                    tr('Signed out'),
                     () => ref.read(storeAccountProvider.notifier).logout(),
                   );
                 }
@@ -182,12 +180,12 @@ class _SignInDialogState extends ConsumerState<_SignInDialog> {
 
   Future<void> _submit() async {
     if (_email.text.trim().isEmpty || _password.text.isEmpty) {
-      setState(() => _error = 'Enter your Apple ID and password.');
+      setState(() => _error = tr('Enter your Apple ID and password.'));
       return;
     }
     if (_needsCode && !RegExp(r'^\d{6}$').hasMatch(_code.text.trim())) {
       setState(
-        () => _error = 'Enter the 6-digit code shown on your Apple device.',
+        () => _error = tr('Enter the 6-digit code shown on your Apple device.'),
       );
       return;
     }
@@ -195,7 +193,7 @@ class _SignInDialogState extends ConsumerState<_SignInDialog> {
       _busy = true;
       _cancelled = false;
       _error = null;
-      _status = 'Starting…';
+      _status = tr('Starting…');
     });
     _clock
       ..reset()
@@ -248,13 +246,13 @@ class _SignInDialogState extends ConsumerState<_SignInDialog> {
     backgroundColor: HudColors.surface,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(14),
-      side: const BorderSide(color: HudColors.glassBorder),
+      side: BorderSide(color: HudColors.glassBorder),
     ),
-    title: const Row(
+    title: Row(
       children: [
         Icon(Icons.storefront_rounded, color: HudColors.cyan),
         SizedBox(width: 10),
-        Text('Sign in to the App Store', style: TextStyle(fontSize: 17)),
+        Text(tr('Sign in to the App Store'), style: TextStyle(fontSize: 17)),
       ],
     ),
     content: SizedBox(
@@ -268,8 +266,8 @@ class _SignInDialogState extends ConsumerState<_SignInDialog> {
             enabled: !_needsCode && !_busy,
             autofocus: true,
             autofillHints: const [AutofillHints.username],
-            decoration: const InputDecoration(
-              labelText: 'Apple ID (email or phone)',
+            decoration: InputDecoration(
+              labelText: tr('Apple ID (email or phone)'),
               isDense: true,
               border: OutlineInputBorder(),
             ),
@@ -281,16 +279,16 @@ class _SignInDialogState extends ConsumerState<_SignInDialog> {
             obscureText: true,
             autofillHints: const [AutofillHints.password],
             onSubmitted: (_) => _submit(),
-            decoration: const InputDecoration(
-              labelText: 'Password',
+            decoration: InputDecoration(
+              labelText: tr('Password'),
               isDense: true,
               border: OutlineInputBorder(),
             ),
           ),
           if (_needsCode) ...[
             const SizedBox(height: 14),
-            const Text(
-              'Apple sent a verification code to your trusted devices.',
+            Text(
+              tr('Apple sent a verification code to your trusted devices.'),
               style: TextStyle(fontSize: 12.5),
             ),
             const SizedBox(height: 8),
@@ -302,8 +300,8 @@ class _SignInDialogState extends ConsumerState<_SignInDialog> {
               keyboardType: TextInputType.number,
               onSubmitted: (_) => _submit(),
               style: HudTheme.telemetry(size: 18, color: HudColors.textPrimary),
-              decoration: const InputDecoration(
-                labelText: '6-digit code',
+              decoration: InputDecoration(
+                labelText: tr('6-digit code'),
                 isDense: true,
                 counterText: '',
                 border: OutlineInputBorder(),
@@ -314,7 +312,7 @@ class _SignInDialogState extends ConsumerState<_SignInDialog> {
             const SizedBox(height: 10),
             Text(
               _error!,
-              style: const TextStyle(color: HudColors.danger, fontSize: 12.5),
+              style: TextStyle(color: HudColors.danger, fontSize: 12.5),
             ),
           ],
           if (_busy) ...[
@@ -325,7 +323,7 @@ class _SignInDialogState extends ConsumerState<_SignInDialog> {
               children: [
                 Expanded(
                   child: Text(
-                    _status ?? 'Talking to Apple…',
+                    _status ?? tr('Talking to Apple…'),
                     style: const TextStyle(fontSize: 12),
                   ),
                 ),
@@ -339,9 +337,10 @@ class _SignInDialogState extends ConsumerState<_SignInDialog> {
               ],
             ),
             const SizedBox(height: 4),
-            const Text(
-              'The first sign-in on this computer downloads and prepares Apple\'s '
-              'sign-in component. That happens once and can take several minutes.',
+            Text(
+              tr(
+                'The first sign-in on this computer downloads and prepares Apple\'s sign-in component. That happens once and can take several minutes.',
+              ),
               style: TextStyle(
                 color: HudColors.textMuted,
                 fontSize: 11.5,
@@ -350,10 +349,10 @@ class _SignInDialogState extends ConsumerState<_SignInDialog> {
             ),
           ],
           const SizedBox(height: 14),
-          const Text(
-            'Your password is sent to Apple through ipatool and is not stored by '
-            'HK Tools. Only the App Store session is kept, in your system '
-            'keychain (encrypted file on Windows).',
+          Text(
+            tr(
+              'Your password is sent to Apple through ipatool and is not stored by HK Tools. Only the App Store session is kept, in your system keychain (encrypted file on Windows).',
+            ),
             style: TextStyle(
               color: HudColors.textMuted,
               fontSize: 11.5,
@@ -365,13 +364,13 @@ class _SignInDialogState extends ConsumerState<_SignInDialog> {
     ),
     actions: [
       NeonButton(
-        label: 'Cancel',
+        label: tr('Cancel'),
         variant: NeonVariant.ghost,
         compact: true,
         onPressed: _cancel,
       ),
       NeonButton(
-        label: _needsCode ? 'Verify' : 'Sign in',
+        label: _needsCode ? tr('Verify') : tr('Sign in'),
         compact: true,
         onPressed: _busy ? null : _submit,
       ),
@@ -419,7 +418,9 @@ class _BrowserState extends ConsumerState<_Browser> {
                   }),
                   decoration: InputDecoration(
                     isDense: true,
-                    hintText: 'Search the App Store (name or keyword) and press Enter',
+                    hintText: tr(
+                      'Search the App Store (name or keyword) and press Enter',
+                    ),
                     prefixIcon: const Icon(Icons.search_rounded, size: 18),
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
@@ -438,12 +439,12 @@ class _BrowserState extends ConsumerState<_Browser> {
           Wrap(
             children: [
               HudChipTab(
-                label: 'Search',
+                label: tr('Search'),
                 active: !_purchases,
                 onTap: () => setState(() => _purchases = false),
               ),
               HudChipTab(
-                label: 'My purchases',
+                label: tr('My purchases'),
                 active: _purchases,
                 onTap: () => setState(() => _purchases = true),
               ),
@@ -459,10 +460,12 @@ class _BrowserState extends ConsumerState<_Browser> {
           const SizedBox(height: 4),
           Expanded(
             child: !_purchases && _term.trim().isEmpty
-                ? const EmptyState(
+                ? EmptyState(
                     icon: Icons.search_rounded,
-                    title: 'Search for an app',
-                    message: 'Try "WhatsApp", "Telegram", or a bundle keyword.',
+                    title: tr('Search for an app'),
+                    message: tr(
+                      'Try "WhatsApp", "Telegram", or a bundle keyword.',
+                    ),
                   )
                 : results.when(
                     loading: () =>
@@ -483,15 +486,17 @@ class _BrowserState extends ConsumerState<_Browser> {
                             .ensure(apps.map((a) => a.bundleId)),
                       );
                       return apps.isEmpty
-                          ? const EmptyState(
+                          ? EmptyState(
                               icon: Icons.apps_outage_rounded,
-                              title: 'No apps found',
+                              title: tr('No apps found'),
                             )
                           : ListView.separated(
                               itemCount: apps.length,
                               separatorBuilder: (_, _) => Divider(
                                 height: 1,
-                                color: Colors.white.withValues(alpha: 0.05),
+                                color: HudColors.overlay.withValues(
+                                  alpha: 0.05,
+                                ),
                               ),
                               itemBuilder: (_, i) => _StoreAppRow(
                                 app: apps[i],
@@ -549,20 +554,20 @@ class _StoreAppRow extends ConsumerWidget {
             ),
           ),
           HudPill(
-            app.isFree ? 'Free' : '\$${app.price.toStringAsFixed(2)}',
+            app.isFree ? tr('Free') : '\$${app.price.toStringAsFixed(2)}',
             color: app.isFree ? HudColors.success : HudColors.warning,
           ),
           const SizedBox(width: 8),
           HudIconButton(
             icon: Icons.history_rounded,
-            tooltip: 'Download an older version…',
+            tooltip: tr('Download an older version…'),
             onPressed: () => showDialog<void>(
               context: context,
               builder: (_) => _VersionsDialog(app: app, platform: platform),
             ),
           ),
           NeonButton(
-            label: 'Download',
+            label: tr('Download'),
             icon: Icons.download_rounded,
             compact: true,
             onPressed: () => _downloadIpa(ref, app, platform),
@@ -593,7 +598,7 @@ Future<void> _downloadIpa(
   if (ask) {
     dir = await getDirectoryPath(
       initialDirectory: Directory(initial).existsSync() ? initial : null,
-      confirmButtonText: 'Save here',
+      confirmButtonText: tr('Save here'),
     );
     if (dir == null) return;
   }
@@ -620,10 +625,10 @@ class _VersionsDialog extends ConsumerWidget {
       backgroundColor: HudColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: HudColors.glassBorder),
+        side: BorderSide(color: HudColors.glassBorder),
       ),
       title: Text(
-        'Versions of ${app.name}',
+        trf('Versions of {0}', [app.name]),
         style: const TextStyle(fontSize: 17),
       ),
       content: SizedBox(
@@ -648,7 +653,7 @@ class _VersionsDialog extends ConsumerWidget {
       ),
       actions: [
         NeonButton(
-          label: 'Close',
+          label: tr('Close'),
           variant: NeonVariant.ghost,
           compact: true,
           onPressed: () => Navigator.pop(context),
@@ -697,11 +702,11 @@ class _VersionRow extends ConsumerWidget {
               style: HudTheme.telemetry(size: 11.5, color: HudColors.textMuted),
             ),
           ),
-          if (latest) const HudPill('Latest', color: HudColors.cyan),
+          if (latest) HudPill(tr('Latest'), color: HudColors.cyan),
           const SizedBox(width: 6),
           HudIconButton(
             icon: Icons.download_rounded,
-            tooltip: 'Download this version',
+            tooltip: tr('Download this version'),
             onPressed: () {
               final navigator = Navigator.of(context);
               _downloadIpa(
@@ -734,14 +739,13 @@ class _DownloadsPanel extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.downloading_rounded,
-                size: 16,
-                color: HudColors.cyan,
-              ),
+              Icon(Icons.downloading_rounded, size: 16, color: HudColors.cyan),
               const SizedBox(width: 8),
-              const Expanded(
-                child: HudLabel('IPA downloads', color: HudColors.textPrimary),
+              Expanded(
+                child: HudLabel(
+                  tr('IPA downloads'),
+                  color: HudColors.textPrimary,
+                ),
               ),
               HudIconButton(
                 icon: Icons.folder_open_rounded,
@@ -756,9 +760,9 @@ class _DownloadsPanel extends ConsumerWidget {
           const SizedBox(height: 8),
           Expanded(
             child: jobs.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
-                      'Downloaded apps appear here.',
+                      tr('Downloaded apps appear here.'),
                       style: TextStyle(
                         color: HudColors.textMuted,
                         fontSize: 12.5,
@@ -797,7 +801,7 @@ class _JobTile extends ConsumerWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        color: Colors.white.withValues(alpha: 0.03),
+        color: HudColors.overlay.withValues(alpha: 0.03),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -832,13 +836,13 @@ class _JobTile extends ConsumerWidget {
                 : GlowProgressBar(value: job.fraction!, height: 4),
             const SizedBox(height: 4),
             Text(
-              job.detail ?? 'Preparing… (claiming license if needed)',
+              job.detail ?? tr('Preparing… (claiming license if needed)'),
               style: HudTheme.telemetry(size: 10.5, color: HudColors.textMuted),
             ),
           ] else if (job.status == StoreJobStatus.failed)
             Text(
-              job.error ?? 'Failed',
-              style: const TextStyle(color: HudColors.danger, fontSize: 12),
+              job.error ?? tr('Failed'),
+              style: TextStyle(color: HudColors.danger, fontSize: 12),
             )
           else if (job.status == StoreJobStatus.done)
             Text(
@@ -847,8 +851,8 @@ class _JobTile extends ConsumerWidget {
               style: HudTheme.telemetry(size: 11, color: HudColors.success),
             )
           else
-            const Text(
-              'Cancelled',
+            Text(
+              tr('Cancelled'),
               style: TextStyle(color: HudColors.textMuted, fontSize: 12),
             ),
           const SizedBox(height: 4),
@@ -858,15 +862,18 @@ class _JobTile extends ConsumerWidget {
               if (job.status == StoreJobStatus.done) ...[
                 HudIconButton(
                   icon: Icons.folder_open_rounded,
-                  tooltip: 'Show file',
+                  tooltip: tr('Show file'),
                   onPressed: () => revealPath(job.path!),
                 ),
                 if (devices.isNotEmpty)
                   PopupMenuButton<ConnectedDevice>(
-                    tooltip: 'Install on a device',
+                    tooltip: tr('Install on a device'),
                     onSelected: (d) => runDeviceAction(
                       context,
-                      '${job.app.name} installed on ${d.displayName}',
+                      trf('{0} installed on {1}', [
+                        job.app.name,
+                        d.displayName,
+                      ]),
                       () => ref
                           .read(deviceServiceProvider)
                           .installApp(d, job.path!),
@@ -875,10 +882,10 @@ class _JobTile extends ConsumerWidget {
                       for (final d in devices)
                         PopupMenuItem(
                           value: d,
-                          child: Text('Install on ${d.displayName}'),
+                          child: Text(trf('Install on {0}', [d.displayName])),
                         ),
                     ],
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -890,7 +897,7 @@ class _JobTile extends ConsumerWidget {
                           ),
                           SizedBox(width: 4),
                           Text(
-                            'Install',
+                            tr('Install'),
                             style: TextStyle(
                               color: HudColors.cyan,
                               fontSize: 12.5,
@@ -904,14 +911,14 @@ class _JobTile extends ConsumerWidget {
               if (job.status == StoreJobStatus.downloading)
                 HudIconButton(
                   icon: Icons.close_rounded,
-                  tooltip: 'Cancel',
+                  tooltip: tr('Cancel'),
                   color: HudColors.danger,
                   onPressed: () => ctl.cancel(job.id),
                 )
               else
                 HudIconButton(
                   icon: Icons.delete_outline_rounded,
-                  tooltip: 'Remove from list',
+                  tooltip: tr('Remove from list'),
                   onPressed: () => ctl.remove(job.id),
                 ),
             ],
@@ -941,8 +948,8 @@ class _ToolMissing extends ConsumerWidget {
                 color: HudColors.cyan.withValues(alpha: 0.6),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'ipatool not found',
+              Text(
+                tr('ipatool not found'),
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 10),
@@ -963,7 +970,7 @@ class _ToolMissing extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   NeonButton(
-                    label: 'Open Settings',
+                    label: tr('Open Settings'),
                     icon: Icons.tune_rounded,
                     onPressed: () => ref
                         .read(sectionProvider.notifier)
@@ -971,7 +978,7 @@ class _ToolMissing extends ConsumerWidget {
                   ),
                   const SizedBox(width: 10),
                   NeonButton(
-                    label: 'Check again',
+                    label: tr('Check again'),
                     icon: Icons.refresh_rounded,
                     variant: NeonVariant.ghost,
                     onPressed: () => ref.invalidate(deviceToolchainProvider),

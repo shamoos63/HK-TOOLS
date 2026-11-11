@@ -12,6 +12,7 @@ import '../../services/catalog/catalog_index.dart';
 import 'app_store_providers.dart';
 import 'core_providers.dart';
 import 'device_providers.dart';
+import '../../core/l10n/l10n.dart';
 
 /// One app in the library: every `.ipa` of it, newest version first.
 class LibraryApp {
@@ -197,13 +198,16 @@ class LibraryActions extends Notifier<Map<String, LibraryJob>> {
 
   Future<bool> install(IpaInfo ipa, ConnectedDevice device) async {
     final id = ipa.bundleId!;
-    _set(id, LibraryJobRunning('Installing on ${device.displayName}…'));
+    _set(
+      id,
+      LibraryJobRunning(trf('Installing on {0}…', [device.displayName])),
+    );
     try {
       await ref.read(deviceServiceProvider).installApp(device, ipa.path);
       _set(
         id,
         LibraryJobDone(
-          'Installed ${ipa.version ?? ''} on ${device.displayName}',
+          trf('Installed {0} on {1}', [ipa.version ?? '', device.displayName]),
         ),
       );
       ref.invalidate(deviceAppsProvider((device.id, false)));
@@ -230,7 +234,7 @@ class LibraryActions extends Notifier<Map<String, LibraryJob>> {
   /// the older files unless Settings keeps them.
   Future<bool> update(LibraryApp app, StoreListing listing) async {
     final id = app.bundleId;
-    _set(id, LibraryJobRunning('Downloading ${listing.version}…'));
+    _set(id, LibraryJobRunning(trf('Downloading {0}…', [listing.version])));
     final path = await ref
         .read(storeDownloadsProvider.notifier)
         .start(
@@ -250,7 +254,7 @@ class LibraryActions extends Notifier<Map<String, LibraryJob>> {
           .read(storeDownloadsProvider)
           .where((j) => j.app.bundleId == id)
           .firstOrNull;
-      _set(id, LibraryJobFailed(job?.error ?? 'Download failed'));
+      _set(id, LibraryJobFailed(job?.error ?? tr('Download failed')));
       return false;
     }
     if (!ref.read(settingsProvider).keepOldIpaVersions) {
@@ -260,7 +264,7 @@ class LibraryActions extends Notifier<Map<String, LibraryJob>> {
         }
       }
     }
-    _set(id, LibraryJobDone('Updated to ${listing.version}'));
+    _set(id, LibraryJobDone(trf('Updated to {0}', [listing.version])));
     await ref.read(ipaLibraryProvider.notifier).rescan();
     return true;
   }

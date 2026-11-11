@@ -260,3 +260,50 @@ On macOS the same assistant uses Homebrew, and uv for pymobiledevice3.
 **Reduced visual effects** (Settings › Interface, on by default on Windows) replaces the
 background glows and live blur behind panels with solid panels. Some Windows graphics
 drivers render those effects as white, washed-out areas.
+
+## WhatsApp chat archive (sidebar › WhatsApp)
+
+Decrypts a WhatsApp message database and lets you read and export the chats —
+entirely on this computer, nothing uploaded. Inspired by
+[wa-transfer](https://github.com/AqibCybery/wa-transfer); this is the
+**decrypt + archive** half (which works reliably), not that project's
+inject-into-an-iPhone-backup half (whose `ChatStorage.sqlite`/`Manifest.db`
+code is non-functional — see notes below).
+
+- **Input:** a `msgstore.db.crypt15` (or `.crypt14`) backup plus the WhatsApp
+  `key` file, or an already-decrypted `msgstore.db`. The key can also be pasted
+  as the 64-digit end-to-end backup code.
+- **Decryption** follows the documented WhatsApp format: a Java-serialized key
+  file → root key → `HMAC(HMAC(0,root), "backup encryption"‖0x01)` → AES-256-GCM,
+  with the 16-byte IV read out of the variable-length protobuf header (not a
+  fixed offset — the fixed-offset shortcut is why simple decryptors fail on
+  real crypt15 files). Verified against a key-derivation reference vector and a
+  full encrypt→decrypt round-trip.
+- **Parsing** reads the modern `message`/`chat`/`jid` schema (WhatsApp 2021+)
+  and falls back to the legacy `messages`/`chat_list` tables. (wa-transfer read
+  only the legacy tables, which newer WhatsApp no longer fills — a main reason
+  its parser returned nothing.)
+- **Browse** chats and messages in a WhatsApp-style view; **export** to a
+  searchable HTML page or a UTF-8 CSV.
+
+### From an iPhone
+
+Switch the source to **From iPhone** to read WhatsApp straight off a connected,
+trusted device — no `.crypt15` or key needed:
+
+- **Back up now** makes a local backup (HK Tools already does this), or pick an
+  existing HK Tools / Finder / iTunes backup that contains WhatsApp.
+- HK Tools finds `ChatStorage.sqlite` in the backup via `Manifest.db`, copies it
+  out (the backup is never modified), and reads it with the same browse/export UI.
+- iOS stores chats in a different schema from Android (`ZWACHATSESSION` /
+  `ZWAMESSAGE` / `ZWAMEDIAITEM`, Apple-epoch timestamps); the reader maps both to
+  one model. Encrypted backups can't be read — turn backup encryption off
+  (Devices → Backup) and back up again.
+
+This is the **read** half. Transferring iPhone→iPhone is best done as a whole-device
+backup/restore (Devices → Backup); a WhatsApp-only merge into another iPhone, or a
+push onto Android, needs the fragile DB injection that isn't supported and isn't built.
+
+Getting the key: `/data/data/com.whatsapp/files/key` on a rooted phone, or
+WhatsApp → Chats → Chat backup → End-to-end encrypted backup (the 64-digit key).
+Use only for your own data, and mind WhatsApp's Terms of Service.

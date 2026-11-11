@@ -9,6 +9,7 @@ import '../../../domain/entities/ios_device.dart';
 import '../../providers/device_providers.dart';
 import '../../widgets/hud_widgets.dart';
 import 'device_widgets.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Live device syslog (`idevicesyslog`).
 class ConsoleTab extends ConsumerStatefulWidget {
@@ -52,19 +53,19 @@ class _ConsoleTabState extends ConsumerState<ConsoleTab> {
       });
     }
     return DeviceCard(
-      title: 'Console',
+      title: tr('Console'),
       icon: Icons.terminal_rounded,
       fill: true,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (s.running)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(right: 10),
               child: PulseDot(color: HudColors.success, size: 6),
             ),
           NeonButton(
-            label: s.running ? 'Stop' : 'Start',
+            label: s.running ? tr('Stop') : tr('Start'),
             icon: s.running ? Icons.stop_rounded : Icons.play_arrow_rounded,
             variant: s.running ? NeonVariant.danger : NeonVariant.primary,
             compact: true,
@@ -74,12 +75,12 @@ class _ConsoleTabState extends ConsumerState<ConsoleTab> {
           ),
           HudIconButton(
             icon: Icons.delete_sweep_outlined,
-            tooltip: 'Clear',
+            tooltip: tr('Clear'),
             onPressed: _ctl.clear,
           ),
           HudIconButton(
             icon: Icons.save_alt_rounded,
-            tooltip: 'Save log',
+            tooltip: tr('Save log'),
             onPressed: s.lines.isEmpty ? null : () => _save(s.lines),
           ),
         ],
@@ -93,9 +94,9 @@ class _ConsoleTabState extends ConsumerState<ConsoleTab> {
                 child: TextField(
                   onChanged: (v) => setState(() => _filter = v),
                   style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     isDense: true,
-                    hintText: 'Filter lines',
+                    hintText: tr('Filter lines'),
                     prefixIcon: Icon(Icons.filter_alt_outlined, size: 16),
                     border: OutlineInputBorder(),
                   ),
@@ -107,19 +108,19 @@ class _ConsoleTabState extends ConsumerState<ConsoleTab> {
                 child: TextField(
                   controller: _process,
                   style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     isDense: true,
-                    hintText: 'Only process (e.g. SpringBoard)',
+                    hintText: tr('Only process (e.g. SpringBoard)'),
                     border: OutlineInputBorder(),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Tooltip(
-                message: 'Hide noisy system daemons',
+                message: tr('Hide noisy system daemons'),
                 child: Row(
                   children: [
-                    const Text('Quiet', style: TextStyle(fontSize: 12.5)),
+                    Text(tr('Quiet'), style: TextStyle(fontSize: 12.5)),
                     Switch(
                       value: _quiet,
                       onChanged: (v) => setState(() => _quiet = v),
@@ -128,10 +129,10 @@ class _ConsoleTabState extends ConsumerState<ConsoleTab> {
                 ),
               ),
               Tooltip(
-                message: 'Auto-scroll to newest',
+                message: tr('Auto-scroll to newest'),
                 child: Row(
                   children: [
-                    const Text('Follow', style: TextStyle(fontSize: 12.5)),
+                    Text(tr('Follow'), style: TextStyle(fontSize: 12.5)),
                     Switch(
                       value: _follow,
                       onChanged: (v) => setState(() => _follow = v),
@@ -146,18 +147,20 @@ class _ConsoleTabState extends ConsumerState<ConsoleTab> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.35),
+                color: HudColors.overlay.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                border: Border.all(
+                  color: HudColors.overlay.withValues(alpha: 0.06),
+                ),
               ),
               padding: const EdgeInsets.all(8),
               child: lines.isEmpty
                   ? Center(
                       child: Text(
                         s.running
-                            ? 'Waiting for log lines…'
-                            : 'Press Start to stream the device log.',
-                        style: const TextStyle(
+                            ? tr('Waiting for log lines…')
+                            : tr('Press Start to stream the device log.'),
+                        style: TextStyle(
                           color: HudColors.textMuted,
                           fontSize: 12.5,
                         ),
@@ -198,7 +201,7 @@ class _ConsoleTabState extends ConsumerState<ConsoleTab> {
     final dir = deviceFolder(
       ref.read(deviceDataDirProvider),
       widget.device,
-      'Logs',
+      tr('Logs'),
     );
     final stamp = DateTime.now()
         .toIso8601String()
@@ -206,7 +209,7 @@ class _ConsoleTabState extends ConsumerState<ConsoleTab> {
         .split('.')
         .first;
     final path = p.join(dir, 'syslog_$stamp.log');
-    await runDeviceAction(context, 'Saved $path', () async {
+    await runDeviceAction(context, trf('Saved {0}', [path]), () async {
       await Directory(dir).create(recursive: true);
       await File(path).writeAsString(lines.join('\n'));
     });

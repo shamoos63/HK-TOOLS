@@ -1,12 +1,16 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'core/branding.dart';
+import 'core/l10n/l10n.dart';
+import 'domain/entities/app_settings.dart';
 import 'core/theme/hud_theme.dart';
 import 'data/cache/catalog_cache.dart';
 import 'data/cache/scan_cache.dart';
@@ -53,7 +57,7 @@ Future<void> main() async {
           SettingsStore(settingsBox, defaultTargetDirectory: defaultTarget),
         ),
       ],
-      child: const HkIpswManagerApp(),
+      child: HkIpswManagerApp(),
     ),
   );
 }
@@ -87,16 +91,14 @@ class StartupProblemApp extends StatelessWidget {
       body: HudBackground(
         child: Stack(
           children: [
-            const Positioned.fill(
-              child: WindowDragArea(child: SizedBox.expand()),
-            ),
+            Positioned.fill(child: WindowDragArea(child: SizedBox.expand())),
             if (useCustomWindowChrome)
-              const Positioned(top: 0, right: 0, child: WindowControls()),
+              Positioned(top: 0, right: 0, child: WindowControls()),
             Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
+                constraints: BoxConstraints(maxWidth: 480),
                 child: GlassPanel(
-                  padding: const EdgeInsets.all(24),
+                  padding: EdgeInsets.all(24),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -109,33 +111,34 @@ class StartupProblemApp extends StatelessWidget {
                             ? HudColors.cyan
                             : HudColors.danger,
                       ),
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       Text(
                         alreadyRunning
                             ? '${Branding.appName} is already running'
                             : '${Branding.appName} could not start',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
                       SelectableText(
                         alreadyRunning
-                            ? 'Another ${Branding.appName} window is open (check the Dock / '
-                                  'taskbar). Only one copy can run at a time because they '
-                                  'share the same settings and downloads.'
+                            ? trf(
+                                'Another {0} window is open (check the Dock / taskbar). Only one copy can run at a time because they share the same settings and downloads.',
+                                [Branding.appName],
+                              )
                             : '$error',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: HudColors.textMuted,
                           fontSize: 13,
                           height: 1.45,
                         ),
                       ),
-                      const SizedBox(height: 18),
+                      SizedBox(height: 18),
                       NeonButton(
-                        label: 'Quit',
+                        label: tr('Quit'),
                         icon: Icons.close_rounded,
                         onPressed: () => exit(0),
                       ),
@@ -151,11 +154,101 @@ class StartupProblemApp extends StatelessWidget {
   );
 }
 
-class HkIpswManagerApp extends ConsumerWidget {
+/// Follows the computer's light/dark mode and language unless Settings
+/// picks one, and switches live when either changes.
+class HkIpswManagerApp extends ConsumerStatefulWidget {
   const HkIpswManagerApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HkIpswManagerApp> createState() => _HkIpswManagerAppState();
+}
+
+class _HkIpswManagerAppState extends ConsumerState<HkIpswManagerApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _apply(ref.read(settingsProvider));
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangePlatformBrightness() => _refresh();
+
+  @override
+  void didChangeLocales(List<Locale>? locales) => _refresh();
+
+  void _refresh() {
+    if (_apply(ref.read(settingsProvider)) && mounted) {
+      // Colours and strings are read straight from HudColors / tr(), so
+      // every widget has to rebuild, not only the ones that watch Theme.
+      void rebuild(Element e) {
+        e.markNeedsBuild();
+        e.visitChildren(rebuild);
+      }
+
+      (context as Element).visitChildren(rebuild);
+      setState(() {});
+    }
+  }
+
+  /// Sets the palette and language; `true` when either changed.
+  static bool _apply(AppSettings s) {
+    final dispatcher = WidgetsBinding.instance.platformDispatcher;
+    // QA: --dart-define=HK_APPEARANCE=light|dark, HK_LANGUAGE=arabic|english
+    final appearance =
+        AppearanceMode.values
+            .where(
+              (m) => m.name == const String.fromEnvironment('HK_APPEARANCE'),
+            )
+            .firstOrNull ??
+        s.appearance;
+    final language =
+        AppLanguage.values
+            .where((m) => m.name == const String.fromEnvironment('HK_LANGUAGE'))
+            .firstOrNull ??
+        s.language;
+    final light = switch (appearance) {
+      AppearanceMode.light => true,
+      AppearanceMode.dark => false,
+      AppearanceMode.system =>
+        dispatcher.platformBrightness == Brightness.light,
+    };
+    final arabic = switch (language) {
+      AppLanguage.arabic => true,
+      AppLanguage.english => false,
+      AppLanguage.system => L10n.systemPrefersArabic,
+    };
+    final palette = light ? HudPalette.light : HudPalette.dark;
+    if (Platform.isMacOS) {
+      // Native title bar follows the app's choice (system = follow macOS).
+      const MethodChannel('hk_tools/window')
+          .invokeMethod<void>(
+            'setAppearance',
+            appearance == AppearanceMode.system
+                ? 'system'
+                : (light ? 'light' : 'dark'),
+          )
+          .catchError((_) {});
+    }
+    final changed = palette != HudColors.current || arabic != L10n.arabic;
+    HudColors.current = palette;
+    L10n.arabic = arabic;
+    return changed;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(
+      settingsProvider.select((s) => (s.appearance, s.language)),
+      (_, _) => _refresh(),
+    );
     final scale = ref.watch(settingsProvider.select((s) => s.effectiveUiScale));
     final reduced = ref.watch(
       settingsProvider.select((s) => s.effectiveReducedEffects),
@@ -163,7 +256,10 @@ class HkIpswManagerApp extends ConsumerWidget {
     return MaterialApp(
       title: Branding.appName,
       debugShowCheckedModeBanner: false,
-      theme: HudTheme.dark(),
+      theme: HudTheme.build(HudColors.current),
+      locale: L10n.locale,
+      supportedLocales: [Locale('en'), Locale('ar')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       // Wraps the Navigator too, so dialogs and snackbars scale with the app.
       builder: (context, child) => HudEffects(
         reduced: reduced,

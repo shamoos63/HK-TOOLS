@@ -6,11 +6,11 @@ import '../../../core/utils/byte_format.dart';
 import '../../../domain/entities/ios_device.dart';
 import '../../../services/device/device_toolchain.dart';
 import '../../../services/device/setup_assistant.dart';
-import '../../providers/catalog_providers.dart';
 import '../../providers/device_providers.dart';
 import '../../widgets/hud_widgets.dart';
 import 'device_widgets.dart';
 import 'devices_screen.dart';
+import '../../../core/l10n/l10n.dart';
 
 class OverviewTab extends ConsumerWidget {
   const OverviewTab({super.key, required this.device});
@@ -22,8 +22,6 @@ class OverviewTab extends ConsumerWidget {
     final paired = device.mode.isBooted && device.pairState == PairState.paired;
     return ListView(
       children: [
-        _Header(device: device),
-        const SizedBox(height: 14),
         if (device.mode.isBooted && !paired) ...[
           TrustHint(device: device),
           const SizedBox(height: 14),
@@ -68,120 +66,6 @@ class OverviewTab extends ConsumerWidget {
   }
 }
 
-class _Header extends ConsumerWidget {
-  const _Header({required this.device});
-
-  final ConnectedDevice device;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final index = ref.watch(catalogIndexProvider);
-    final info = device.info;
-    final model = device.productType == null
-        ? null
-        : index.displayName(device.productType!);
-    final color = modeColor(device.mode);
-    return GlassPanel(
-      glow: true,
-      padding: const EdgeInsets.all(18),
-      child: Row(
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              color: color.withValues(alpha: 0.08),
-              border: Border.all(color: color.withValues(alpha: 0.35)),
-            ),
-            child: Icon(deviceIcon(device.productType), size: 34, color: color),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        device.displayName,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    if (device.mode.isBooted &&
-                        device.pairState == PairState.paired)
-                      HudIconButton(
-                        icon: Icons.edit_rounded,
-                        tooltip: 'Rename device',
-                        onPressed: () => _rename(context, ref),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  [
-                    ?model,
-                    ?device.productType,
-                    if (info?.productVersion != null)
-                      'iOS ${info!.productVersion} (${info.buildVersion ?? '?'})',
-                  ].join('  ·  '),
-                  style: HudTheme.telemetry(
-                    size: 12.5,
-                    color: HudColors.textMuted,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    HudPill('${device.mode.label} mode', color: color),
-                    if (info?.partNumber != null)
-                      HudPill(info!.partNumber!, color: HudColors.purple),
-                    if (info?.activationState != null)
-                      HudPill(
-                        info!.activationState!,
-                        color: info.activationState == 'Activated'
-                            ? HudColors.success
-                            : HudColors.warning,
-                      ),
-                    if (info?.passwordProtected == true)
-                      const HudPill(
-                        'Passcode',
-                        color: HudColors.textMuted,
-                        icon: Icons.lock_rounded,
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _rename(BuildContext context, WidgetRef ref) async {
-    final name = await promptText(
-      context,
-      title: 'Rename device',
-      initial: device.displayName,
-    );
-    if (name == null || name.trim().isEmpty || !context.mounted) return;
-    final ok = await runDeviceAction(
-      context,
-      'Renamed to ${name.trim()}',
-      () => ref.read(deviceServiceProvider).rename(device, name.trim()),
-    );
-    if (ok) await ref.read(devicesProvider.notifier).refresh(device.id);
-  }
-}
-
 class _IdentityCard extends StatelessWidget {
   const _IdentityCard({required this.device});
 
@@ -191,21 +75,21 @@ class _IdentityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final i = device.info!;
     return DeviceCard(
-      title: 'Identity',
+      title: tr('Identity'),
       icon: Icons.fingerprint_rounded,
       child: InfoTable([
-        ('Identifier', i.productType),
-        ('Hardware model', i.hardwareModel),
-        ('Serial number', i.serialNumber),
-        ('UDID', device.udid),
-        ('ECID', device.ecidHex),
-        ('IMEI', i.imei),
-        ('Phone number', i.phoneNumber),
-        ('Wi-Fi address', i.wifiAddress),
-        ('Bluetooth', i.bluetoothAddress),
-        ('Baseband', i.basebandVersion),
-        ('CPU architecture', i.cpuArchitecture),
-        ('Region', i.regionInfo),
+        (tr('Identifier'), i.productType),
+        (tr('Hardware model'), i.hardwareModel),
+        (tr('Serial number'), i.serialNumber),
+        (tr('UDID'), device.udid),
+        (tr('ECID'), device.ecidHex),
+        (tr('IMEI'), i.imei),
+        (tr('Phone number'), i.phoneNumber),
+        (tr('Wi-Fi address'), i.wifiAddress),
+        (tr('Bluetooth'), i.bluetoothAddress),
+        (tr('Baseband'), i.basebandVersion),
+        (tr('CPU architecture'), i.cpuArchitecture),
+        (tr('Region'), i.regionInfo),
       ]),
     );
   }
@@ -220,11 +104,11 @@ class _BatteryCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(deviceBatteryProvider(device.id));
     return DeviceCard(
-      title: 'Battery',
+      title: tr('Battery'),
       icon: Icons.battery_charging_full_rounded,
       trailing: HudIconButton(
         icon: Icons.refresh_rounded,
-        tooltip: 'Refresh',
+        tooltip: tr('Refresh'),
         onPressed: () => ref.invalidate(deviceBatteryProvider(device.id)),
       ),
       child: async.when(
@@ -245,14 +129,14 @@ class _BatteryCard extends ConsumerWidget {
               Row(
                 children: [
                   _Gauge(
-                    label: 'Charge',
+                    label: tr('Charge'),
                     value: b.level == null ? null : b.level! / 100,
                     text: b.level == null ? '—' : '${b.level}%',
                     color: HudColors.cyan,
                   ),
                   const SizedBox(width: 18),
                   _Gauge(
-                    label: 'Health',
+                    label: tr('Health'),
                     value: health == null ? null : (health / 100).clamp(0, 1),
                     text: health == null
                         ? '—'
@@ -266,18 +150,15 @@ class _BatteryCard extends ConsumerWidget {
                       runSpacing: 6,
                       children: [
                         if (b.isCharging == true)
-                          const HudPill(
-                            'Charging',
+                          HudPill(
+                            tr('Charging'),
                             color: HudColors.success,
                             icon: Icons.bolt_rounded,
                           ),
                         if (b.fullyCharged == true)
-                          const HudPill('Full', color: HudColors.success),
+                          HudPill(tr('Full'), color: HudColors.success),
                         if (b.externalConnected == true)
-                          const HudPill(
-                            'Power connected',
-                            color: HudColors.cyan,
-                          ),
+                          HudPill(tr('Power connected'), color: HudColors.cyan),
                       ],
                     ),
                   ),
@@ -285,33 +166,33 @@ class _BatteryCard extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               InfoTable([
-                ('Cycle count', b.cycleCount?.toString()),
+                (tr('Cycle count'), b.cycleCount?.toString()),
                 (
-                  'Design capacity',
+                  tr('Design capacity'),
                   b.designCapacity == null ? null : '${b.designCapacity} mAh',
                 ),
                 (
-                  'Full charge capacity',
+                  tr('Full charge capacity'),
                   b.maxCapacity == null ? null : '${b.maxCapacity} mAh',
                 ),
                 (
-                  'Current charge',
+                  tr('Current charge'),
                   b.currentCapacity == null ? null : '${b.currentCapacity} mAh',
                 ),
                 (
-                  'Temperature',
+                  tr('Temperature'),
                   b.temperatureC == null
                       ? null
                       : '${b.temperatureC!.toStringAsFixed(1)} °C',
                 ),
                 (
-                  'Voltage',
+                  tr('Voltage'),
                   b.voltage == null
                       ? null
                       : '${b.voltage!.toStringAsFixed(3)} V',
                 ),
-                ('Current', b.amperage == null ? null : '${b.amperage} mA'),
-                ('Battery serial', b.serial),
+                (tr('Current'), b.amperage == null ? null : '${b.amperage} mA'),
+                (tr('Battery serial'), b.serial),
               ]),
             ],
           );
@@ -347,7 +228,7 @@ class _Gauge extends StatelessWidget {
               value: value ?? 0,
               strokeWidth: 5,
               color: color,
-              backgroundColor: Colors.white.withValues(alpha: 0.06),
+              backgroundColor: HudColors.overlay.withValues(alpha: 0.06),
             ),
             Center(
               child: Text(
@@ -373,14 +254,14 @@ class _StorageCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(deviceStorageProvider(device.id));
     return DeviceCard(
-      title: 'Storage',
+      title: tr('Storage'),
       icon: Icons.sd_storage_rounded,
       child: async.when(
         loading: () => const LinearProgressIndicator(minHeight: 2),
         error: (e, _) => DeviceError(e),
         data: (s) => s == null
-            ? const Text(
-                'Not reported',
+            ? Text(
+                tr('Not reported'),
                 style: TextStyle(color: HudColors.textMuted),
               )
             : Column(
@@ -389,12 +270,15 @@ class _StorageCard extends ConsumerWidget {
                   Row(
                     children: [
                       Text(
-                        '${formatBytes(s.used, decimals: 1)} used',
+                        trf('{0} used', [formatBytes(s.used, decimals: 1)]),
                         style: HudTheme.telemetry(color: HudColors.textPrimary),
                       ),
                       const Spacer(),
                       Text(
-                        '${formatBytes(s.availableData, decimals: 1)} free of ${formatBytes(s.totalDisk, decimals: 0)}',
+                        trf('{0} free of {1}', [
+                          formatBytes(s.availableData, decimals: 1),
+                          formatBytes(s.totalDisk, decimals: 0),
+                        ]),
                         style: HudTheme.telemetry(
                           size: 12,
                           color: HudColors.textMuted,
@@ -421,7 +305,7 @@ class _ActionsCard extends ConsumerWidget {
     final svc = ref.read(deviceServiceProvider);
     final paired = device.pairState == PairState.paired;
     return DeviceCard(
-      title: 'Actions',
+      title: tr('Actions'),
       icon: Icons.power_settings_new_rounded,
       child: Wrap(
         spacing: 8,
@@ -429,13 +313,13 @@ class _ActionsCard extends ConsumerWidget {
         children: [
           if (!paired)
             NeonButton(
-              label: 'Pair',
+              label: tr('Pair'),
               icon: Icons.link_rounded,
               compact: true,
               onPressed: () async {
                 await runDeviceAction(
                   context,
-                  'Paired with this computer',
+                  tr('Paired with this computer'),
                   () => svc.pair(device),
                 );
                 await ref.read(devicesProvider.notifier).refresh(device.id);
@@ -443,95 +327,97 @@ class _ActionsCard extends ConsumerWidget {
             ),
           if (paired) ...[
             NeonButton(
-              label: 'Restart',
+              label: tr('Restart'),
               icon: Icons.restart_alt_rounded,
               variant: NeonVariant.ghost,
               compact: true,
               onPressed: () => runDeviceAction(
                 context,
-                'Restarting ${device.displayName}',
+                trf('Restarting {0}', [device.displayName]),
                 () => svc.restart(device),
               ),
             ),
             NeonButton(
-              label: 'Shut down',
+              label: tr('Shut down'),
               icon: Icons.power_settings_new_rounded,
               variant: NeonVariant.ghost,
               compact: true,
               onPressed: () async {
                 if (await confirmDialog(
                       context,
-                      title: 'Shut down ${device.displayName}?',
-                      message: 'The device powers off and disconnects.',
-                      confirmLabel: 'Shut down',
+                      title: trf('Shut down {0}?', [device.displayName]),
+                      message: tr('The device powers off and disconnects.'),
+                      confirmLabel: tr('Shut down'),
                     ) &&
                     context.mounted) {
                   await runDeviceAction(
                     context,
-                    'Shutting down',
+                    tr('Shutting down'),
                     () => svc.shutdown(device),
                   );
                 }
               },
             ),
             NeonButton(
-              label: 'Sleep',
+              label: tr('Sleep'),
               icon: Icons.bedtime_rounded,
               variant: NeonVariant.ghost,
               compact: true,
               onPressed: () => runDeviceAction(
                 context,
-                'Device is going to sleep',
+                tr('Device is going to sleep'),
                 () => svc.sleep(device),
               ),
             ),
             NeonButton(
-              label: 'Enter Recovery',
+              label: tr('Enter Recovery'),
               icon: Icons.healing_rounded,
               variant: NeonVariant.ghost,
               compact: true,
               onPressed: () async {
                 if (await confirmDialog(
                       context,
-                      title: 'Enter Recovery mode?',
-                      message:
-                          'The device reboots into Recovery mode. Nothing is erased; '
-                          'use "Exit Recovery" to boot back into iOS.',
-                      confirmLabel: 'Enter Recovery',
+                      title: tr('Enter Recovery mode?'),
+                      message: tr(
+                        'The device reboots into Recovery mode. Nothing is erased; use "Exit Recovery" to boot back into iOS.',
+                      ),
+                      confirmLabel: tr('Enter Recovery'),
                     ) &&
                     context.mounted) {
                   await runDeviceAction(
                     context,
-                    'Rebooting into Recovery mode',
+                    tr('Rebooting into Recovery mode'),
                     () => svc.enterRecovery(device),
                   );
                 }
               },
             ),
             NeonButton(
-              label: 'Factory reset',
+              label: tr('Factory reset'),
               icon: Icons.delete_forever_rounded,
               variant: NeonVariant.danger,
               compact: true,
               onPressed: () => _factoryReset(context, ref),
             ),
             NeonButton(
-              label: 'Unpair',
+              label: tr('Unpair'),
               icon: Icons.link_off_rounded,
               variant: NeonVariant.danger,
               compact: true,
               onPressed: () async {
                 if (await confirmDialog(
                       context,
-                      title: 'Unpair this computer?',
-                      message: 'The device forgets this computer. It will ask to "Trust" again next time.',
-                      confirmLabel: 'Unpair',
+                      title: tr('Unpair this computer?'),
+                      message: tr(
+                        'The device forgets this computer. It will ask to "Trust" again next time.',
+                      ),
+                      confirmLabel: tr('Unpair'),
                       danger: true,
                     ) &&
                     context.mounted) {
                   await runDeviceAction(
                     context,
-                    'Unpaired',
+                    tr('Unpaired'),
                     () => svc.unpair(device),
                   );
                   await ref.read(devicesProvider.notifier).refresh(device.id);
@@ -547,9 +433,11 @@ class _ActionsCard extends ConsumerWidget {
   Future<void> _factoryReset(BuildContext context, WidgetRef ref) async {
     if (!ref.read(deviceToolchainProvider).has(DeviceTool.pymobiledevice3)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Factory reset needs pymobiledevice3: pip install pymobiledevice3',
+            tr(
+              'Factory reset needs pymobiledevice3: pip install pymobiledevice3',
+            ),
           ),
         ),
       );
@@ -562,7 +450,9 @@ class _ActionsCard extends ConsumerWidget {
     if (keepPlan == null || !context.mounted) return;
     await runDeviceAction(
       context,
-      '${device.displayName} is erasing and will restart into Setup Assistant',
+      trf('{0} is erasing and will restart into Setup Assistant', [
+        device.displayName,
+      ]),
       () => ref
           .read(deviceServiceProvider)
           .factoryReset(device, preserveDataPlan: keepPlan),
@@ -579,17 +469,20 @@ class _LowLevelCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final q = device.recoveryInfo;
     return DeviceCard(
-      title: '${device.mode.label} mode',
+      title: trf('{0} mode', [device.mode.label]),
       icon: Icons.memory_rounded,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             device.mode == DeviceMode.dfu
-                ? 'The device is in DFU mode. Restore a signed IPSW to bring it back.'
-                : 'The device is in Recovery mode. Restore a signed IPSW, or exit '
-                      'Recovery to boot the existing iOS installation.',
-            style: const TextStyle(color: HudColors.textMuted, fontSize: 13),
+                ? tr(
+                    'The device is in DFU mode. Restore a signed IPSW to bring it back.',
+                  )
+                : tr(
+                    'The device is in Recovery mode. Restore a signed IPSW, or exit Recovery to boot the existing iOS installation.',
+                  ),
+            style: TextStyle(color: HudColors.textMuted, fontSize: 13),
           ),
           const SizedBox(height: 12),
           InfoTable([
@@ -604,7 +497,7 @@ class _LowLevelCard extends ConsumerWidget {
             spacing: 8,
             children: [
               NeonButton(
-                label: 'Flash firmware',
+                label: tr('Flash firmware'),
                 icon: Icons.system_update_alt_rounded,
                 compact: true,
                 onPressed: () =>
@@ -612,13 +505,13 @@ class _LowLevelCard extends ConsumerWidget {
               ),
               if (device.mode == DeviceMode.recovery)
                 NeonButton(
-                  label: 'Exit Recovery',
+                  label: tr('Exit Recovery'),
                   icon: Icons.exit_to_app_rounded,
                   variant: NeonVariant.ghost,
                   compact: true,
                   onPressed: () => runDeviceAction(
                     context,
-                    'Rebooting into iOS',
+                    tr('Rebooting into iOS'),
                     () => ref.read(deviceServiceProvider).exitRecovery(device),
                   ),
                 ),
@@ -649,11 +542,11 @@ class _ActivationCardState extends ConsumerState<_ActivationCard> {
     final hasTool = ref
         .watch(deviceToolchainProvider)
         .has(DeviceTool.pymobiledevice3);
-    final state = d.info?.activationState ?? 'Unknown';
+    final state = d.info?.activationState ?? tr('Unknown');
     final activated = state == 'Activated' || state == 'FactoryActivated';
     final setupDone = ref.watch(deviceSetupDoneProvider(d.id)).value;
     return DeviceCard(
-      title: 'Activation & Setup',
+      title: tr('Activation & Setup'),
       icon: Icons.verified_user_rounded,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -671,9 +564,9 @@ class _ActivationCardState extends ConsumerState<_ActivationCard> {
               ),
               HudPill(
                 switch (setupDone) {
-                  true => 'Setup complete',
-                  false => 'In Setup Assistant',
-                  null => 'Setup state unknown',
+                  true => tr('Setup complete'),
+                  false => tr('In Setup Assistant'),
+                  null => tr('Setup state unknown'),
                 },
                 color: setupDone == false
                     ? HudColors.warning
@@ -684,18 +577,20 @@ class _ActivationCardState extends ConsumerState<_ActivationCard> {
           const SizedBox(height: 10),
           Text(
             !activated
-                ? 'Activate contacts Apple\'s activation server, like Finder or iTunes. '
-                      'If Activation Lock is on, the owner\'s Apple ID is required on the device.'
+                ? tr(
+                    'Activate contacts Apple\'s activation server, like Finder or iTunes. If Activation Lock is on, the owner\'s Apple ID is required on the device.',
+                  )
                 : setupDone == false
-                ? 'Skip Setup jumps past the Setup Assistant screens you choose, '
-                      'the same way Apple Configurator prepares devices.'
-                : 'This device is activated and set up.',
-            style: const TextStyle(color: HudColors.textMuted, fontSize: 12.5),
+                ? tr(
+                    'Skip Setup jumps past the Setup Assistant screens you choose, the same way Apple Configurator prepares devices.',
+                  )
+                : tr('This device is activated and set up.'),
+            style: TextStyle(color: HudColors.textMuted, fontSize: 12.5),
           ),
           if (!hasTool) ...[
             const SizedBox(height: 8),
             SelectableText(
-              'Requires pymobiledevice3:  pip install pymobiledevice3',
+              tr('Requires pymobiledevice3:  pip install pymobiledevice3'),
               style: HudTheme.telemetry(size: 12, color: HudColors.warning),
             ),
           ],
@@ -711,7 +606,7 @@ class _ActivationCardState extends ConsumerState<_ActivationCard> {
             runSpacing: 8,
             children: [
               NeonButton(
-                label: 'Activate',
+                label: tr('Activate'),
                 icon: Icons.verified_rounded,
                 compact: true,
                 onPressed: hasTool && !activated && _busy == null
@@ -719,7 +614,7 @@ class _ActivationCardState extends ConsumerState<_ActivationCard> {
                     : null,
               ),
               NeonButton(
-                label: 'Skip Setup',
+                label: tr('Skip Setup'),
                 icon: Icons.fast_forward_rounded,
                 variant: NeonVariant.ghost,
                 compact: true,
@@ -736,10 +631,10 @@ class _ActivationCardState extends ConsumerState<_ActivationCard> {
   }
 
   Future<void> _activate() async {
-    setState(() => _busy = 'Activating with Apple…');
+    setState(() => _busy = tr('Activating with Apple…'));
     final ok = await runDeviceAction(
       context,
-      '${d.displayName} is activated',
+      trf('{0} is activated', [d.displayName]),
       () => ref.read(deviceServiceProvider).activate(d),
     );
     if (!mounted) return;
@@ -757,13 +652,13 @@ class _ActivationCardState extends ConsumerState<_ActivationCard> {
     );
     if (choice == null || !mounted) return;
     final (keep, restart) = choice;
-    setState(() => _busy = 'Applying setup configuration…');
+    setState(() => _busy = tr('Applying setup configuration…'));
     final svc = ref.read(deviceServiceProvider);
     final ok = await runDeviceAction(
       context,
       restart
-          ? 'Configuration applied; restarting ${d.displayName}'
-          : 'Configuration applied. Restart the device to apply it.',
+          ? trf('Configuration applied; restarting {0}', [d.displayName])
+          : tr('Configuration applied. Restart the device to apply it.'),
       () async {
         await svc.skipSetup(d, skipPanes(keep: keep));
         if (restart) await svc.restart(d);
@@ -794,18 +689,19 @@ class _SkipSetupDialogState extends State<_SkipSetupDialog> {
     backgroundColor: HudColors.surface,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(14),
-      side: const BorderSide(color: HudColors.glassBorder),
+      side: BorderSide(color: HudColors.glassBorder),
     ),
-    title: const Text('Skip Setup Assistant', style: TextStyle(fontSize: 17)),
+    title: Text(tr('Skip Setup Assistant'), style: TextStyle(fontSize: 17)),
     content: SizedBox(
       width: 440,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Welcome, terms, Siri, Screen Time, analytics, appearance and the other '
-            'promotional screens are always skipped. Tick the screens you still want to see:',
+          Text(
+            tr(
+              'Welcome, terms, Siri, Screen Time, analytics, appearance and the other promotional screens are always skipped. Tick the screens you still want to see:',
+            ),
             style: TextStyle(
               color: HudColors.textMuted,
               fontSize: 12.5,
@@ -819,7 +715,7 @@ class _SkipSetupDialogState extends State<_SkipSetupDialog> {
               contentPadding: EdgeInsets.zero,
               value: _keep.contains(g),
               title: Text(
-                'Show ${g.label}',
+                trf('Show {0}', [g.label]),
                 style: const TextStyle(fontSize: 13),
               ),
               onChanged: (v) =>
@@ -830,16 +726,17 @@ class _SkipSetupDialogState extends State<_SkipSetupDialog> {
             dense: true,
             contentPadding: EdgeInsets.zero,
             value: _restart,
-            title: const Text(
-              'Restart the device to apply',
+            title: Text(
+              tr('Restart the device to apply'),
               style: TextStyle(fontSize: 13),
             ),
             onChanged: (v) => setState(() => _restart = v ?? true),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Works while the device is on the Setup Assistant after an erase or restore. '
-            'A device that already has a configuration must be erased first.',
+          Text(
+            tr(
+              'Works while the device is on the Setup Assistant after an erase or restore. A device that already has a configuration must be erased first.',
+            ),
             style: TextStyle(
               color: HudColors.textMuted,
               fontSize: 11.5,
@@ -851,13 +748,13 @@ class _SkipSetupDialogState extends State<_SkipSetupDialog> {
     ),
     actions: [
       NeonButton(
-        label: 'Cancel',
+        label: tr('Cancel'),
         variant: NeonVariant.ghost,
         compact: true,
         onPressed: () => Navigator.pop(context),
       ),
       NeonButton(
-        label: 'Skip Setup',
+        label: tr('Skip Setup'),
         compact: true,
         onPressed: () => Navigator.pop(context, (_keep, _restart)),
       ),
@@ -896,7 +793,7 @@ class _FactoryResetDialogState extends State<_FactoryResetDialog> {
         side: BorderSide(color: HudColors.danger.withValues(alpha: 0.5)),
       ),
       title: Text(
-        'Factory reset ${widget.device.displayName}?',
+        trf('Factory reset {0}?', [widget.device.displayName]),
         style: const TextStyle(fontSize: 17),
       ),
       content: SizedBox(
@@ -905,12 +802,10 @@ class _FactoryResetDialogState extends State<_FactoryResetDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Erases all content and settings: apps, photos, messages, accounts and '
-              'passcode. The device restarts into Setup Assistant on its current iOS '
-              'version.\n\n'
-              'Back it up first (Backup tab). If Find My is on, Activation Lock stays '
-              'on after the erase and the owner\'s Apple ID will be needed to activate it.',
+            Text(
+              tr(
+                'Erases all content and settings: apps, photos, messages, accounts and passcode. The device restarts into Setup Assistant on its current iOS version.\n\nBack it up first (Backup tab). If Find My is on, Activation Lock stays on after the erase and the owner\'s Apple ID will be needed to activate it.',
+              ),
               style: TextStyle(
                 color: HudColors.textMuted,
                 fontSize: 13,
@@ -922,17 +817,14 @@ class _FactoryResetDialogState extends State<_FactoryResetDialog> {
               dense: true,
               contentPadding: EdgeInsets.zero,
               value: _keepPlan,
-              title: const Text(
-                'Keep eSIM / cellular plan',
+              title: Text(
+                tr('Keep eSIM / cellular plan'),
                 style: TextStyle(fontSize: 13),
               ),
               onChanged: (v) => setState(() => _keepPlan = v ?? true),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Type ERASE to confirm',
-              style: TextStyle(fontSize: 12.5),
-            ),
+            Text(tr('Type ERASE to confirm'), style: TextStyle(fontSize: 12.5)),
             const SizedBox(height: 6),
             TextField(
               controller: _confirm,
@@ -949,13 +841,13 @@ class _FactoryResetDialogState extends State<_FactoryResetDialog> {
       ),
       actions: [
         NeonButton(
-          label: 'Cancel',
+          label: tr('Cancel'),
           variant: NeonVariant.ghost,
           compact: true,
           onPressed: () => Navigator.pop(context),
         ),
         NeonButton(
-          label: 'Erase device',
+          label: tr('Erase device'),
           variant: NeonVariant.danger,
           compact: true,
           onPressed: armed ? () => Navigator.pop(context, _keepPlan) : null,

@@ -17,6 +17,7 @@ import '../../widgets/hud_widgets.dart';
 import '../library/firmware_group_tile.dart';
 import '../library/library_screen.dart';
 import '../library/selection_bar.dart';
+import '../../../core/l10n/l10n.dart';
 
 enum _Tab { inventory, missing, duplicates }
 
@@ -36,31 +37,31 @@ class _RepositoryScreenState extends ConsumerState<RepositoryScreen> {
     final missingCount = inv.missingLatest().missing.length;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 6, 24, 20),
+      padding: EdgeInsets.fromLTRB(24, 6, 24, 20),
       child: Stack(
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const _HealthPanel(),
-              const SizedBox(height: 14),
+              _HealthPanel(),
+              SizedBox(height: 14),
               Row(
                 children: [
                   _TabButton(
-                    label: 'Inventory',
+                    label: tr('Inventory'),
                     count: inv.files.length,
                     active: _tab == _Tab.inventory,
                     onTap: () => setState(() => _tab = _Tab.inventory),
                   ),
                   _TabButton(
-                    label: 'Missing firmware',
+                    label: tr('Missing firmware'),
                     count: missingCount,
                     color: missingCount > 0 ? HudColors.warning : null,
                     active: _tab == _Tab.missing,
                     onTap: () => setState(() => _tab = _Tab.missing),
                   ),
                   _TabButton(
-                    label: 'Duplicates',
+                    label: tr('Duplicates'),
                     count: inv.duplicates.length,
                     color: inv.duplicates.isNotEmpty ? HudColors.purple : null,
                     active: _tab == _Tab.duplicates,
@@ -68,23 +69,18 @@ class _RepositoryScreenState extends ConsumerState<RepositoryScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Expanded(
                 child: switch (_tab) {
-                  _Tab.inventory => const _InventoryTab(),
-                  _Tab.missing => const _MissingTab(),
-                  _Tab.duplicates => const _DuplicatesTab(),
+                  _Tab.inventory => _InventoryTab(),
+                  _Tab.missing => _MissingTab(),
+                  _Tab.duplicates => _DuplicatesTab(),
                 },
               ),
             ],
           ),
           if (_tab == _Tab.missing)
-            const Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: SelectionBar(),
-            ),
+            Positioned(left: 0, right: 0, bottom: 0, child: SelectionBar()),
         ],
       ),
     );
@@ -107,18 +103,14 @@ class _HealthPanel extends ConsumerWidget {
 
     return GlassPanel(
       glow: state.scanning,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.storage_rounded,
-                color: HudColors.cyan,
-                size: 22,
-              ),
-              const SizedBox(width: 12),
+              Icon(Icons.storage_rounded, color: HudColors.cyan, size: 22),
+              SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -131,15 +123,23 @@ class _HealthPanel extends ConsumerWidget {
                         color: HudColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    SizedBox(height: 3),
                     Text(
                       state.error ??
                           (state.scanning
-                              ? 'Scanning ${state.done}/${state.total}'
-                                    '${state.currentPath == null ? '' : ' · ${p.basename(state.currentPath!)}'}'
+                              ? trf('Scanning {0}/{1}{2}', [
+                                  state.done,
+                                  state.total,
+                                  state.currentPath == null
+                                      ? ''
+                                      : ' · ${p.basename(state.currentPath!)}',
+                                ])
                               : state.scannedAt == null
-                              ? 'Not scanned yet'
-                              : 'Scanned ${_time(state.scannedAt!)} · ${inv.pathCount} paths on disk'),
+                              ? tr('Not scanned yet')
+                              : trf('Scanned {0} · {1} paths on disk', [
+                                  _time(state.scannedAt!),
+                                  inv.pathCount,
+                                ])),
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 12,
@@ -152,14 +152,14 @@ class _HealthPanel extends ConsumerWidget {
                 ),
               ),
               NeonButton(
-                label: 'Change folder',
+                label: tr('Change folder'),
                 icon: Icons.folder_open_rounded,
                 variant: NeonVariant.ghost,
                 compact: true,
                 onPressed: () async {
                   final picked = await getDirectoryPath(
                     initialDirectory: folder,
-                    confirmButtonText: 'Use folder',
+                    confirmButtonText: tr('Use folder'),
                   );
                   if (picked != null) {
                     ref
@@ -168,9 +168,9 @@ class _HealthPanel extends ConsumerWidget {
                   }
                 },
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               NeonButton(
-                label: state.scanning ? 'Scanning…' : 'Rescan',
+                label: state.scanning ? tr('Scanning…') : tr('Rescan'),
                 icon: Icons.radar_rounded,
                 compact: true,
                 onPressed: state.scanning
@@ -180,7 +180,7 @@ class _HealthPanel extends ConsumerWidget {
             ],
           ),
           if (state.skipped.isNotEmpty || state.accessDenied) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             _AccessBanner(
               skipped: state.skipped,
               rootDenied: state.accessDenied,
@@ -188,51 +188,53 @@ class _HealthPanel extends ConsumerWidget {
             ),
           ],
           if (state.scanning) ...[
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             GlowProgressBar(
               value: state.total == 0 ? 0 : state.done / state.total,
               height: 3,
             ),
           ],
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           Row(
             children: [
-              _Metric('Files', '${inv.files.length}', HudColors.cyan),
+              _Metric(tr('Files'), '${inv.files.length}', HudColors.cyan),
               _Metric(
-                'On disk',
+                tr('On disk'),
                 formatBytes(inv.physicalBytes, decimals: 1),
                 HudColors.cyan,
               ),
               _Metric(
-                'Identified',
+                tr('Identified'),
                 '${inv.identifiedCount}/${inv.files.length}',
                 HudColors.textPrimary,
               ),
               _Metric(
-                'SHA1 verified',
+                tr('SHA1 verified'),
                 '${inv.verifiedCount}',
                 HudColors.success,
               ),
               _Metric(
-                'Issues',
+                tr('Issues'),
                 '${inv.problemCount}',
                 inv.problemCount > 0 ? HudColors.danger : HudColors.textMuted,
               ),
               _Metric(
-                'Reclaimable',
+                tr('Reclaimable'),
                 formatBytes(inv.reclaimableBytes, decimals: 1),
                 inv.reclaimableBytes > 0
                     ? HudColors.purple
                     : HudColors.textMuted,
               ),
               _Metric(
-                'Up to date',
-                '${missing.upToDate} devices',
+                tr('Up to date'),
+                trf('{0} devices', [missing.upToDate]),
                 HudColors.success,
               ),
               _Metric(
-                'Missing latest',
-                '${missing.missing.fold<int>(0, (s, m) => s + m.devices.length)} devices',
+                tr('Missing latest'),
+                trf('{0} devices', [
+                  missing.missing.fold<int>(0, (s, m) => s + m.devices.length),
+                ]),
                 missing.missing.isEmpty
                     ? HudColors.textMuted
                     : HudColors.warning,
@@ -261,7 +263,7 @@ class _Metric extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         HudLabel(label),
-        const SizedBox(height: 4),
+        SizedBox(height: 4),
         Text(
           value,
           maxLines: 1,
@@ -293,23 +295,23 @@ class _TabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(right: 8),
+    padding: EdgeInsets.only(right: 8),
     child: MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          duration: Duration(milliseconds: 150),
+          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(9),
             color: active
                 ? HudColors.cyan.withValues(alpha: 0.12)
-                : Colors.white.withValues(alpha: 0.03),
+                : HudColors.overlay.withValues(alpha: 0.03),
             border: Border.all(
               color: active
                   ? HudColors.cyan.withValues(alpha: 0.5)
-                  : Colors.white.withValues(alpha: 0.08),
+                  : HudColors.overlay.withValues(alpha: 0.08),
             ),
           ),
           child: Row(
@@ -322,7 +324,7 @@ class _TabButton extends StatelessWidget {
                   color: active ? HudColors.textPrimary : HudColors.textMuted,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 '$count',
                 style: HudTheme.telemetry(
@@ -359,16 +361,18 @@ class _InventoryTab extends ConsumerWidget {
       return GlassPanel(
         child: EmptyState(
           icon: state.scanning ? Icons.radar_rounded : Icons.folder_off_rounded,
-          title: state.scanning ? 'Scanning…' : 'No .ipsw files in this folder',
-          message:
-              'Downloads land here automatically. You can also point the repository at an '
-              'existing firmware folder with "Change folder".',
+          title: state.scanning
+              ? tr('Scanning…')
+              : tr('No .ipsw files in this folder'),
+          message: tr(
+            'Downloads land here automatically. You can also point the repository at an existing firmware folder with "Change folder".',
+          ),
         ),
       );
     }
 
     return GlassPanel(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      padding: EdgeInsets.fromLTRB(16, 14, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -376,19 +380,21 @@ class _InventoryTab extends ConsumerWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Each row is one physical file; hardlinked names are counted as links, not copies.',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: HudColors.textMuted,
+                  tr(
+                    'Each row is one physical file; hardlinked names are counted as links, not copies.',
                   ),
+                  style: TextStyle(fontSize: 12, color: HudColors.textMuted),
                 ),
               ),
               NeonButton(
                 label: unverified.isEmpty
                     ? (inv.verifiedCount == inv.files.length
-                          ? 'All verified'
-                          : 'Nothing to verify')
-                    : 'Verify ${unverified.length} (${formatBytes(unverifiedBytes, decimals: 1)})',
+                          ? tr('All verified')
+                          : tr('Nothing to verify'))
+                    : trf('Verify {0} ({1})', [
+                        unverified.length,
+                        formatBytes(unverifiedBytes, decimals: 1),
+                      ]),
                 icon: Icons.fingerprint_rounded,
                 variant: NeonVariant.ghost,
                 compact: true,
@@ -400,7 +406,7 @@ class _InventoryTab extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           Expanded(
             child: ListView.builder(
               itemCount: inv.files.length,
@@ -431,24 +437,24 @@ class _InventoryRow extends ConsumerWidget {
     final names = f.deviceIdentifiers.map(index.displayName).toSet().toList();
     final linksToMake = f.deviceIdentifiers.toSet().length - f.deviceLinkCount;
     final (iLabel, iColor) = switch (f.integrity) {
-      Integrity.verified => ('SHA1 OK', HudColors.success),
-      Integrity.mismatch => ('SHA1 MISMATCH', HudColors.danger),
-      Integrity.sizeMismatch => ('SIZE MISMATCH', HudColors.danger),
-      Integrity.unreadable => ('UNREADABLE', HudColors.danger),
-      Integrity.unverified => ('UNVERIFIED', HudColors.textMuted),
+      Integrity.verified => (tr('SHA1 OK'), HudColors.success),
+      Integrity.mismatch => (tr('SHA1 MISMATCH'), HudColors.danger),
+      Integrity.sizeMismatch => (tr('SIZE MISMATCH'), HudColors.danger),
+      Integrity.unreadable => (tr('UNREADABLE'), HudColors.danger),
+      Integrity.unverified => (tr('UNVERIFIED'), HudColors.textMuted),
     };
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      margin: EdgeInsets.only(bottom: 6),
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        color: Colors.white.withValues(alpha: 0.02),
+        color: HudColors.overlay.withValues(alpha: 0.02),
         border: Border.all(
           color:
               f.integrity == Integrity.verified ||
                   f.integrity == Integrity.unverified
-              ? Colors.white.withValues(alpha: 0.06)
+              ? HudColors.overlay.withValues(alpha: 0.06)
               : HudColors.danger.withValues(alpha: 0.4),
         ),
       ),
@@ -460,13 +466,10 @@ class _InventoryRow extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${f.platform?.label ?? 'Unknown'} ${f.version}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
+                  '${f.platform?.label ?? "Unknown"} ${f.version}',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: 2),
                 Text(
                   f.buildId,
                   style: HudTheme.telemetry(
@@ -490,26 +493,23 @@ class _InventoryRow extends ConsumerWidget {
                     color: HudColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 3),
+                SizedBox(height: 3),
                 Text(
                   f.group == null && f.primary.manifestError != null
                       ? f.primary.manifestError!
                       : names.isEmpty
-                      ? 'Not in IPSW.me catalog'
+                      ? tr('Not in IPSW.me catalog')
                       : names.length <= 3
                       ? names.join(' · ')
                       : '${names.take(3).join(' · ')} · +${names.length - 3}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: HudColors.textMuted,
-                  ),
+                  style: TextStyle(fontSize: 11.5, color: HudColors.textMuted),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           if (f.links.length > 1) ...[
             Tooltip(
               message: f.links
@@ -521,24 +521,24 @@ class _InventoryRow extends ConsumerWidget {
                   )
                   .join('\n'),
               child: HudPill(
-                '${f.links.length} LINKS',
+                trf('{0} LINKS', [f.links.length]),
                 color: HudColors.purple,
                 icon: Icons.link_rounded,
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
           ],
           HudPill(
             switch (f.method) {
-              MatchMethod.manifest => 'MANIFEST',
-              MatchMethod.fileName => 'FILENAME',
-              MatchMethod.none => 'UNMATCHED',
+              MatchMethod.manifest => tr('MANIFEST'),
+              MatchMethod.fileName => tr('FILENAME'),
+              MatchMethod.none => tr('UNMATCHED'),
             },
             color: f.method == MatchMethod.none
                 ? HudColors.warning
                 : HudColors.textMuted,
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           SizedBox(
             width: 82,
             child: Text(
@@ -547,7 +547,7 @@ class _InventoryRow extends ConsumerWidget {
               style: HudTheme.telemetry(size: 12, color: HudColors.textPrimary),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           SizedBox(
             width: 128,
             child: hashing != null
@@ -555,10 +555,12 @@ class _InventoryRow extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'HASHING ${(hashing * 100).toStringAsFixed(0)}%',
+                        trf('HASHING {0}%', [
+                          (hashing * 100).toStringAsFixed(0),
+                        ]),
                         style: HudTheme.telemetry(size: 10.5),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       GlowProgressBar(value: hashing, height: 3),
                     ],
                   )
@@ -580,8 +582,15 @@ class _InventoryRow extends ConsumerWidget {
           HudIconButton(
             icon: Icons.account_tree_rounded,
             tooltip: linksToMake > 0
-                ? 'Create $linksToMake per-device hardlink${linksToMake == 1 ? '' : 's'} in "$deviceLinksFolder" (no extra space)'
-                : 'Per-device links in place',
+                ? trf(
+                    'Create {0} per-device hardlink{1} in "{2}" (no extra space)',
+                    [
+                      linksToMake,
+                      linksToMake == 1 ? '' : 's',
+                      deviceLinksFolder,
+                    ],
+                  )
+                : tr('Per-device links in place'),
             color: linksToMake > 0 ? HudColors.purple : HudColors.textMuted,
             onPressed: busy || linksToMake <= 0 || f.deviceIdentifiers.isEmpty
                 ? null
@@ -589,12 +598,15 @@ class _InventoryRow extends ConsumerWidget {
                     final n = await ref
                         .read(repositoryProvider.notifier)
                         .createDeviceLinks(f);
-                    return 'Created $n device link${n == 1 ? '' : 's'}';
+                    return trf('Created {0} device link{1}', [
+                      n,
+                      n == 1 ? '' : 's',
+                    ]);
                   }),
           ),
           HudIconButton(
             icon: Icons.folder_open_rounded,
-            tooltip: 'Reveal',
+            tooltip: tr('Reveal'),
             onPressed: () => _reveal(f.primary.path),
           ),
         ],
@@ -647,7 +659,7 @@ class _MissingTabState extends ConsumerState<_MissingTab> {
             children: [
               for (final (label, set) in _filters) ...[
                 _TabButton(
-                  label: 'Show missing $label',
+                  label: trf('Show missing {0}', [tr(label)]),
                   count: inv
                       .missingLatest(
                         platforms: set,
@@ -662,8 +674,8 @@ class _MissingTabState extends ConsumerState<_MissingTab> {
                 ),
               ],
               const Spacer(),
-              const Text(
-                'Only devices in repository',
+              Text(
+                tr('Only devices in repository'),
                 style: TextStyle(fontSize: 12, color: HudColors.textMuted),
               ),
               Transform.scale(
@@ -671,8 +683,6 @@ class _MissingTabState extends ConsumerState<_MissingTab> {
                 child: Switch(
                   value: _onlyOwned,
                   onChanged: (v) => setState(() => _onlyOwned = v),
-                  activeThumbColor: HudColors.cyan,
-                  activeTrackColor: HudColors.cyan.withValues(alpha: 0.3),
                 ),
               ),
             ],
@@ -683,9 +693,18 @@ class _MissingTabState extends ConsumerState<_MissingTab> {
               Expanded(
                 child: Text(
                   r.missing.isEmpty
-                      ? '${r.upToDate} devices have their latest signed firmware.'
-                      : '$devices devices lack their latest signed IPSW → ${r.missing.length} unique '
-                            'payloads (${formatBytes(bytes, decimals: 1)}). ${r.upToDate} devices up to date.',
+                      ? trf('{0} devices have their latest signed firmware.', [
+                          r.upToDate,
+                        ])
+                      : trf(
+                          '{0} devices lack their latest signed IPSW → {1} unique payloads ({2}). {3} devices up to date.',
+                          [
+                            devices,
+                            r.missing.length,
+                            formatBytes(bytes, decimals: 1),
+                            r.upToDate,
+                          ],
+                        ),
                   style: HudTheme.telemetry(
                     size: 12,
                     color: HudColors.textMuted,
@@ -693,7 +712,7 @@ class _MissingTabState extends ConsumerState<_MissingTab> {
                 ),
               ),
               NeonButton(
-                label: 'Queue all missing (${r.missing.length})',
+                label: trf('Queue all missing ({0})', [r.missing.length]),
                 icon: Icons.download_for_offline_rounded,
                 compact: true,
                 onPressed: r.missing.isEmpty
@@ -709,10 +728,13 @@ class _MissingTabState extends ConsumerState<_MissingTab> {
                         messenger.showSnackBar(
                           SnackBar(
                             content: Text(
-                              'Queued ${tasks.length} payloads (${formatBytes(bytes, decimals: 1)})',
+                              trf('Queued {0} payloads ({1})', [
+                                tasks.length,
+                                formatBytes(bytes, decimals: 1),
+                              ]),
                             ),
                             action: SnackBarAction(
-                              label: 'VIEW',
+                              label: tr('VIEW'),
                               onPressed: () => ref
                                   .read(sectionProvider.notifier)
                                   .set(AppSection.queue),
@@ -728,9 +750,9 @@ class _MissingTabState extends ConsumerState<_MissingTab> {
           const SizedBox(height: 6),
           Expanded(
             child: r.missing.isEmpty
-                ? const EmptyState(
+                ? EmptyState(
                     icon: Icons.task_alt_rounded,
-                    title: 'Nothing missing for this filter',
+                    title: tr('Nothing missing for this filter'),
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.only(bottom: 90),
@@ -760,11 +782,13 @@ class _DuplicatesTab extends ConsumerWidget {
     final folder = ref.watch(settingsProvider.select((s) => s.targetDirectory));
 
     if (inv.duplicates.isEmpty) {
-      return const GlassPanel(
+      return GlassPanel(
         child: EmptyState(
           icon: Icons.compress_rounded,
-          title: 'No duplicate payloads',
-          message: 'Every firmware payload is stored once. Per-device names are hardlinks and cost no space.',
+          title: tr('No duplicate payloads'),
+          message: tr(
+            'Every firmware payload is stored once. Per-device names are hardlinks and cost no space.',
+          ),
         ),
       );
     }
@@ -778,17 +802,17 @@ class _DuplicatesTab extends ConsumerWidget {
             children: [
               Expanded(
                 child: Text(
-                  '${inv.duplicates.length} payloads are stored more than once. Merging hashes each copy '
-                  '(SHA1 must match), then replaces extras with hardlinks to one file.',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: HudColors.textMuted,
+                  trf(
+                    '{0} payloads are stored more than once. Merging hashes each copy (SHA1 must match), then replaces extras with hardlinks to one file.',
+                    [inv.duplicates.length],
                   ),
+                  style: TextStyle(fontSize: 12, color: HudColors.textMuted),
                 ),
               ),
               NeonButton(
-                label:
-                    'Reclaim all ${formatBytes(inv.reclaimableBytes, decimals: 1)}',
+                label: trf('Reclaim all {0}', [
+                  formatBytes(inv.reclaimableBytes, decimals: 1),
+                ]),
                 icon: Icons.compress_rounded,
                 compact: true,
                 onPressed: busy.isNotEmpty
@@ -800,7 +824,9 @@ class _DuplicatesTab extends ConsumerWidget {
                               .read(repositoryProvider.notifier)
                               .reclaim(d);
                         }
-                        return 'Reclaimed ${formatBytes(freed, decimals: 1)}';
+                        return trf('Reclaimed {0}', [
+                          formatBytes(freed, decimals: 1),
+                        ]);
                       }),
               ),
             ],
@@ -815,7 +841,7 @@ class _DuplicatesTab extends ConsumerWidget {
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),
-                      color: Colors.white.withValues(alpha: 0.02),
+                      color: HudColors.overlay.withValues(alpha: 0.02),
                       border: Border.all(
                         color: HudColors.purple.withValues(alpha: 0.35),
                       ),
@@ -827,8 +853,12 @@ class _DuplicatesTab extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '${d.group.release.platform.label} ${d.group.release.version} '
-                                '(${d.group.release.buildId}) × ${d.files.length} copies',
+                                trf('{0} {1} ({2}) × {3} copies', [
+                                  d.group.release.platform.label,
+                                  d.group.release.version,
+                                  d.group.release.buildId,
+                                  d.files.length,
+                                ]),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -864,7 +894,9 @@ class _DuplicatesTab extends ConsumerWidget {
                                       ),
                                       if (hashing[f.identityId] case final h?)
                                         Text(
-                                          'SHA1 ${(h * 100).toStringAsFixed(0)}%',
+                                          trf('SHA1 {0}%', [
+                                            (h * 100).toStringAsFixed(0),
+                                          ]),
                                           style: HudTheme.telemetry(size: 11),
                                         ),
                                     ],
@@ -875,14 +907,16 @@ class _DuplicatesTab extends ConsumerWidget {
                         ),
                         const SizedBox(width: 16),
                         HudPill(
-                          'SAVES ${formatBytes(d.reclaimableBytes, decimals: 1)}',
+                          trf('SAVES {0}', [
+                            formatBytes(d.reclaimableBytes, decimals: 1),
+                          ]),
                           color: HudColors.purple,
                         ),
                         const SizedBox(width: 10),
                         NeonButton(
                           label: busy.contains(d.group.payloadKey)
-                              ? 'Merging…'
-                              : 'Merge',
+                              ? tr('Merging…')
+                              : tr('Merge'),
                           variant: NeonVariant.ghost,
                           compact: true,
                           onPressed: busy.isNotEmpty
@@ -891,7 +925,9 @@ class _DuplicatesTab extends ConsumerWidget {
                                   final freed = await ref
                                       .read(repositoryProvider.notifier)
                                       .reclaim(d);
-                                  return 'Reclaimed ${formatBytes(freed, decimals: 1)}';
+                                  return trf('Reclaimed {0}', [
+                                    formatBytes(freed, decimals: 1),
+                                  ]);
                                 }),
                         ),
                       ],
@@ -946,14 +982,18 @@ class _AccessBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final title = rootDenied
-        ? 'Access to this folder was denied, so nothing could be scanned.'
-        : 'Skipped ${skipped.length} unreadable '
-              '${skipped.length == 1 ? 'location' : 'locations'} '
-              '(no permission). Everything else was scanned.';
+        ? tr('Access to this folder was denied, so nothing could be scanned.')
+        : trf(
+            'Skipped {0} unreadable {1} (no permission). Everything else was scanned.',
+            [skipped.length, skipped.length == 1 ? 'location' : 'locations'],
+          );
     final hint = Platform.isMacOS
-        ? 'Allow "HK Tools" under System Settings › Privacy & Security › '
-              'Files & Folders (or Full Disk Access for external / network drives), then Rescan.'
-        : 'Check the folder\'s Properties › Security tab for your account, then Rescan.';
+        ? tr(
+            'Allow "HK Tools" under System Settings › Privacy & Security › Files & Folders (or Full Disk Access for external / network drives), then Rescan.',
+          )
+        : tr(
+            'Check the folder\'s Properties › Security tab for your account, then Rescan.',
+          );
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
@@ -964,11 +1004,7 @@ class _AccessBanner extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.lock_outline_rounded,
-            color: HudColors.warning,
-            size: 20,
-          ),
+          Icon(Icons.lock_outline_rounded, color: HudColors.warning, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -984,10 +1020,7 @@ class _AccessBanner extends ConsumerWidget {
                 const SizedBox(height: 3),
                 Text(
                   hint,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: HudColors.textMuted,
-                  ),
+                  style: TextStyle(fontSize: 12, color: HudColors.textMuted),
                 ),
                 if (!rootDenied) ...[
                   const SizedBox(height: 4),
@@ -1001,7 +1034,7 @@ class _AccessBanner extends ConsumerWidget {
                             )
                             .join(' · ') +
                         (skipped.length > 3
-                            ? ' · +${skipped.length - 3} more'
+                            ? trf(' · +{0} more', [skipped.length - 3])
                             : ''),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1017,7 +1050,7 @@ class _AccessBanner extends ConsumerWidget {
           const SizedBox(width: 12),
           if (Platform.isMacOS)
             NeonButton(
-              label: 'Open Privacy settings',
+              label: tr('Open Privacy settings'),
               icon: Icons.privacy_tip_outlined,
               variant: NeonVariant.ghost,
               compact: true,
@@ -1027,7 +1060,7 @@ class _AccessBanner extends ConsumerWidget {
             )
           else
             NeonButton(
-              label: 'Open folder',
+              label: tr('Open folder'),
               icon: Icons.folder_open_rounded,
               variant: NeonVariant.ghost,
               compact: true,
@@ -1035,7 +1068,7 @@ class _AccessBanner extends ConsumerWidget {
             ),
           const SizedBox(width: 8),
           NeonButton(
-            label: 'Rescan',
+            label: tr('Rescan'),
             icon: Icons.refresh_rounded,
             compact: true,
             onPressed: ref.read(repositoryProvider.notifier).scan,

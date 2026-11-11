@@ -81,7 +81,7 @@ void main() {
     await tester.tap(find.text('Hisham Khateeb'));
     await tester.pump();
     expect(find.text('h@example.com'), findsWidgets);
-    expect(find.text('POSSIBLE DUPLICATES'), findsOneWidget);
+    expect(find.text('Possible duplicates'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'acme');
     await tester.pump();

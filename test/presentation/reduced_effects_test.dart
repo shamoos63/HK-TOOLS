@@ -13,10 +13,16 @@ Widget _wrap(bool reduced) => MaterialApp(
 );
 
 void main() {
-  testWidgets('full effects use backdrop blur and glows', (tester) async {
+  testWidgets('full effects: soft shadows, never a backdrop blur', (
+    tester,
+  ) async {
     await tester.pumpWidget(_wrap(false));
-    expect(find.byType(BackdropFilter), findsOneWidget);
+    expect(find.byType(BackdropFilter), findsNothing);
     expect(find.text('panel'), findsOneWidget);
+    final shadows = tester
+        .widgetList<Container>(find.byType(Container))
+        .where((c) => (c.decoration as BoxDecoration?)?.boxShadow != null);
+    expect(shadows, isNotEmpty);
   });
 
   testWidgets('reduced effects: solid panel, no blur, no glows', (
@@ -25,11 +31,12 @@ void main() {
     await tester.pumpWidget(_wrap(true));
     expect(find.byType(BackdropFilter), findsNothing);
     expect(find.text('panel'), findsOneWidget);
-    // Only the grid painter remains in the backdrop (no radial glows).
-    final gradients = tester
+    // Flat panels: no gradients, no shadows.
+    final decorated = tester
         .widgetList<Container>(find.byType(Container))
-        .where((c) => (c.decoration as BoxDecoration?)?.gradient != null);
-    expect(gradients, isEmpty);
+        .map((c) => c.decoration as BoxDecoration?)
+        .where((d) => d?.gradient != null || d?.boxShadow != null);
+    expect(decorated, isEmpty);
   });
 
   test('defaults: on for Windows only, overridable, persisted', () {

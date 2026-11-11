@@ -14,6 +14,7 @@ import '../../providers/device_providers.dart';
 import '../../providers/setup_providers.dart';
 import '../setup/setup_assistant.dart';
 import '../../widgets/hud_widgets.dart';
+import '../../../core/l10n/l10n.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -26,19 +27,45 @@ class SettingsScreen extends ConsumerWidget {
         ref.read(settingsProvider.notifier).update(f);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 6, 24, 24),
+      padding: EdgeInsets.fromLTRB(24, 6, 24, 24),
       children: [
-        const _AboutSection(),
-        const SizedBox(height: 16),
+        _AboutSection(),
+        SizedBox(height: 16),
         _Section(
-          title: 'Interface',
+          title: tr('Interface'),
           icon: Icons.aspect_ratio_rounded,
           children: [
+            _ChoiceRow<AppearanceMode>(
+              label: tr('Appearance'),
+              help: tr(
+                'Automatic follows the light or dark mode of this computer.',
+              ),
+              value: s.appearance,
+              options: {
+                AppearanceMode.system: tr('Automatic'),
+                AppearanceMode.light: tr('Light'),
+                AppearanceMode.dark: tr('Dark'),
+              },
+              onChanged: (v) => update((x) => x.copyWith(appearance: v)),
+            ),
+            _ChoiceRow<AppLanguage>(
+              label: tr('Language'),
+              help: tr(
+                'Automatic uses Arabic when it is the language of this computer.',
+              ),
+              value: s.language,
+              options: {
+                AppLanguage.system: tr('Automatic'),
+                AppLanguage.english: tr('English'),
+                AppLanguage.arabic: 'العربية',
+              },
+              onChanged: (v) => update((x) => x.copyWith(language: v)),
+            ),
             _SliderRow(
-              label: 'Interface size',
-              help:
-                  'Scales text and controls. Small windows shrink the interface further '
-                  'so everything fits.',
+              label: tr('Interface size'),
+              help: tr(
+                'Scales text and controls. Small windows shrink the interface further so everything fits.',
+              ),
               value: (s.effectiveUiScale * 100).round(),
               min: 75,
               max: 125,
@@ -50,11 +77,10 @@ class SettingsScreen extends ConsumerWidget {
                   update((x) => x.copyWith(uiScale: () => v / 100)),
             ),
             _SwitchRow(
-              label: 'Reduced visual effects',
-              help:
-                  'Solid panels without background glows or live blur. Use it if parts '
-                  'of the window look white or washed out (some graphics drivers), '
-                  'or to save battery. On by default on Windows.',
+              label: tr('Reduced visual effects'),
+              help: tr(
+                'Solid panels without background glows or live blur. Use it if parts of the window look white or washed out (some graphics drivers), or to save battery. On by default on Windows.',
+              ),
               value: s.effectiveReducedEffects,
               onChanged: (v) =>
                   update((x) => x.copyWith(reducedEffects: () => v)),
@@ -62,23 +88,26 @@ class SettingsScreen extends ConsumerWidget {
           ],
         ),
         _Section(
-          title: 'Downloads',
+          title: tr('Downloads'),
           icon: Icons.folder_rounded,
           children: [
             _FolderRow(
-              label: 'IPSW download folder',
+              label: tr('IPSW download folder'),
               help: _withDriveWarning(
-                'Firmware downloads land here. This is also the repository the '
-                'Repository scanner audits.',
+                tr(
+                  'Firmware downloads land here. This is also the repository the Repository scanner audits.',
+                ),
                 s.targetDirectory,
               ),
               path: s.targetDirectory,
               onPick: (p) => update((x) => x.copyWith(targetDirectory: p)),
             ),
             _FolderRow(
-              label: 'IPA library folder',
+              label: tr('IPA library folder'),
               help: _withDriveWarning(
-                'App Store downloads (.ipa) land here, and the IPA Library lists this folder.',
+                tr(
+                  'App Store downloads (.ipa) land here, and the IPA Library lists this folder.',
+                ),
                 ipaDir,
               ),
               path: s.ipaDirectory,
@@ -89,40 +118,42 @@ class SettingsScreen extends ConsumerWidget {
                   : () => update((x) => x.copyWith(ipaDirectory: () => null)),
             ),
             _SwitchRow(
-              label: 'Ask where to save each IPA',
-              help: 'Choose a folder every time you download an app.',
+              label: tr('Ask where to save each IPA'),
+              help: tr('Choose a folder every time you download an app.'),
               value: s.askIpaLocation,
               onChanged: (v) => update((x) => x.copyWith(askIpaLocation: v)),
             ),
             _FolderRow(
-              label: 'Temp folder',
-              help:
-                  'Optional scratch location for partial .hkdl files (e.g. a fast SSD). '
-                  'Same volume as the repository avoids a 10 GB copy at the end.',
+              label: tr('Temp folder'),
+              help: tr(
+                'Optional scratch location for partial .hkdl files (e.g. a fast SSD). Same volume as the repository avoids a 10 GB copy at the end.',
+              ),
               path: s.tempDirectory,
-              placeholder: 'Same as repository folder',
+              placeholder: tr('Same as repository folder'),
               onPick: (p) => update((x) => x.copyWith(tempDirectory: () => p)),
               onClear: s.tempDirectory == null
                   ? null
                   : () => update((x) => x.copyWith(tempDirectory: () => null)),
             ),
             _SwitchRow(
-              label: 'Per-device hardlinks',
-              help:
-                  'After a download, add "By Device/<identifier>_<version>_<build>_Restore.ipsw" '
-                  'hardlinks for every device the payload serves. Uses no extra disk space.',
+              label: tr('Per-device hardlinks'),
+              help: tr(
+                'After a download, add "By Device/<identifier>_<version>_<build>_Restore.ipsw" hardlinks for every device the payload serves. Uses no extra disk space.',
+              ),
               value: s.autoDeviceLinks,
               onChanged: (v) => update((x) => x.copyWith(autoDeviceLinks: v)),
             ),
           ],
         ),
         _Section(
-          title: 'Download engine',
+          title: tr('Download engine'),
           icon: Icons.bolt_rounded,
           children: [
             _SliderRow(
-              label: 'Threads per download',
-              help: 'Parallel HTTP range connections. Idle threads split the largest remaining chunk.',
+              label: tr('Threads per download'),
+              help: tr(
+                'Parallel HTTP range connections. Idle threads split the largest remaining chunk.',
+              ),
               value: s.threads,
               min: 2,
               max: 16,
@@ -130,8 +161,10 @@ class SettingsScreen extends ConsumerWidget {
               onChanged: (v) => update((x) => x.copyWith(threads: v)),
             ),
             _SliderRow(
-              label: 'Concurrent downloads',
-              help: 'Files transferring at the same time; the rest wait in queue order.',
+              label: tr('Concurrent downloads'),
+              help: tr(
+                'Files transferring at the same time; the rest wait in queue order.',
+              ),
               value: s.maxConcurrentDownloads,
               min: 1,
               max: 6,
@@ -140,15 +173,16 @@ class SettingsScreen extends ConsumerWidget {
                   update((x) => x.copyWith(maxConcurrentDownloads: v)),
             ),
             _SliderRow(
-              label: 'Global speed cap',
-              help:
-                  'Shared across all threads of all downloads. 0 = unlimited.',
+              label: tr('Global speed cap'),
+              help: tr(
+                'Shared across all threads of all downloads. 0 = unlimited.',
+              ),
               value: s.globalSpeedLimitBytesPerSecond ~/ (1024 * 1024),
               min: 0,
               max: 200,
               divisions: 40,
               display: s.globalSpeedLimitBytesPerSecond == 0
-                  ? 'Unlimited'
+                  ? tr('Unlimited')
                   : formatRate(s.globalSpeedLimitBytesPerSecond),
               onChanged: (v) => update(
                 (x) =>
@@ -156,8 +190,10 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
             _SliderRow(
-              label: 'Link refresh timeout',
-              help: 'How long to wait for IPSW.me when an expired Apple CDN link is re-resolved.',
+              label: tr('Link refresh timeout'),
+              help: tr(
+                'How long to wait for IPSW.me when an expired Apple CDN link is re-resolved.',
+              ),
               value: s.linkRefreshTimeout.inSeconds,
               min: 10,
               max: 120,
@@ -168,8 +204,10 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
             _SwitchRow(
-              label: 'Verify SHA1 after download',
-              help: 'Hashes the file on a background isolate and compares with IPSW.me.',
+              label: tr('Verify SHA1 after download'),
+              help: tr(
+                'Hashes the file on a background isolate and compares with IPSW.me.',
+              ),
               value: s.autoVerifySha1,
               onChanged: (v) => update((x) => x.copyWith(autoVerifySha1: v)),
             ),
@@ -211,7 +249,10 @@ class _Section extends StatelessWidget {
           const SizedBox(height: 8),
           for (final (i, c) in children.indexed) ...[
             if (i > 0)
-              Divider(color: Colors.white.withValues(alpha: 0.06), height: 1),
+              Divider(
+                color: HudColors.overlay.withValues(alpha: 0.06),
+                height: 1,
+              ),
             c,
           ],
         ],
@@ -250,10 +291,7 @@ class _RowShell extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 help,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: HudColors.textMuted,
-                ),
+                style: TextStyle(fontSize: 12, color: HudColors.textMuted),
               ),
             ],
           ),
@@ -294,11 +332,15 @@ class _FolderRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            color: Colors.black.withValues(alpha: 0.3),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            color: HudColors.overlay.withValues(alpha: 0.05),
+            border: Border.all(
+              color: HudColors.overlay.withValues(alpha: 0.08),
+            ),
           ),
           child: Text(
             path ?? placeholder,
+            // File paths read left to right in every language.
+            textDirection: path == null ? null : TextDirection.ltr,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: HudTheme.telemetry(
@@ -311,20 +353,20 @@ class _FolderRow extends StatelessWidget {
         if (onClear != null) ...[
           HudIconButton(
             icon: Icons.close_rounded,
-            tooltip: 'Clear',
+            tooltip: tr('Clear'),
             onPressed: onClear,
           ),
           const SizedBox(width: 4),
         ],
         NeonButton(
-          label: 'Choose',
+          label: tr('Choose'),
           icon: Icons.folder_open_rounded,
           variant: NeonVariant.ghost,
           compact: true,
           onPressed: () async {
             final picked = await getDirectoryPath(
               initialDirectory: path,
-              confirmButtonText: 'Use folder',
+              confirmButtonText: tr('Use folder'),
             );
             if (picked != null) onPick(picked);
           },
@@ -367,7 +409,7 @@ class _SliderRow extends StatelessWidget {
           child: SliderTheme(
             data: SliderTheme.of(context).copyWith(
               activeTrackColor: HudColors.cyan,
-              inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
+              inactiveTrackColor: HudColors.overlay.withValues(alpha: 0.1),
               thumbColor: HudColors.cyan,
               overlayColor: HudColors.cyan.withValues(alpha: 0.15),
               trackHeight: 3,
@@ -394,6 +436,77 @@ class _SliderRow extends StatelessWidget {
   );
 }
 
+class _ChoiceRow<T> extends StatelessWidget {
+  const _ChoiceRow({
+    required this.label,
+    required this.help,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String help;
+  final T value;
+  final Map<T, String> options;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) => _RowShell(
+    label: label,
+    help: help,
+    trailing: Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: HudColors.overlay.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final e in options.entries)
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => onChanged(e.key),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: e.key == value
+                      ? HudColors.surfaceRaised
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: e.key == value
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  e.value,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: e.key == value
+                        ? HudColors.textPrimary
+                        : HudColors.textMuted,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _SwitchRow extends StatelessWidget {
   const _SwitchRow({
     required this.label,
@@ -411,12 +524,7 @@ class _SwitchRow extends StatelessWidget {
   Widget build(BuildContext context) => _RowShell(
     label: label,
     help: help,
-    trailing: Switch(
-      value: value,
-      onChanged: onChanged,
-      activeThumbColor: HudColors.cyan,
-      activeTrackColor: HudColors.cyan.withValues(alpha: 0.3),
-    ),
+    trailing: Switch(value: value, onChanged: onChanged),
   );
 }
 
@@ -427,19 +535,25 @@ class _CatalogSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(catalogProvider).value;
     return _Section(
-      title: 'Catalog cache',
+      title: tr('Catalog cache'),
       icon: Icons.cloud_sync_rounded,
       children: [
         _RowShell(
-          label: 'IPSW.me index',
+          label: tr('IPSW.me index'),
           help: state == null
-              ? 'Loading…'
-              : '${state.index.devices.length} devices · ${state.index.payloadCount} unique payloads · '
-                    '${state.index.signedPayloadCount} signed. Device lists refresh every 24 h, firmware every 6 h.',
+              ? tr('Loading…')
+              : trf(
+                  '{0} devices · {1} unique payloads · {2} signed. Device lists refresh every 24 h, firmware every 6 h.',
+                  [
+                    state.index.devices.length,
+                    state.index.payloadCount,
+                    state.index.signedPayloadCount,
+                  ],
+                ),
           trailing: Row(
             children: [
               NeonButton(
-                label: 'Clear cache',
+                label: tr('Clear cache'),
                 variant: NeonVariant.danger,
                 compact: true,
                 onPressed: () async {
@@ -449,7 +563,9 @@ class _CatalogSection extends ConsumerWidget {
               ),
               const SizedBox(width: 10),
               NeonButton(
-                label: state?.syncing ?? false ? 'Syncing…' : 'Resync now',
+                label: state?.syncing ?? false
+                    ? tr('Syncing…')
+                    : tr('Resync now'),
                 icon: Icons.sync_rounded,
                 compact: true,
                 onPressed: state?.syncing ?? true
@@ -502,7 +618,7 @@ class _AboutSection extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const HudLabel('About', color: HudColors.cyan),
+                HudLabel(tr('About'), color: HudColors.cyan),
                 const SizedBox(height: 8),
                 Text(
                   Branding.appName,
@@ -513,14 +629,14 @@ class _AboutSection extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Version ${Branding.version}',
+                  trf('Version {0}', [Branding.version]),
                   style: HudTheme.telemetry(
                     size: 12,
                     color: HudColors.textMuted,
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   Branding.credit,
                   style: TextStyle(fontSize: 14, color: HudColors.textPrimary),
                 ),
@@ -530,14 +646,14 @@ class _AboutSection extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     NeonButton(
-                      label: 'Telegram: ${Branding.telegramLabel}',
+                      label: trf('Telegram: {0}', [Branding.telegramLabel]),
                       icon: Icons.send_rounded,
                       variant: NeonVariant.ghost,
                       compact: true,
                       onPressed: () => Branding.open(Branding.telegramUrl),
                     ),
                     NeonButton(
-                      label: 'Website: ${Branding.websiteLabel}',
+                      label: trf('Website: {0}', [Branding.websiteLabel]),
                       icon: Icons.language_rounded,
                       variant: NeonVariant.ghost,
                       compact: true,
@@ -565,16 +681,16 @@ class _DeviceToolsSection extends ConsumerWidget {
         ref.read(settingsProvider.notifier).update(f);
     final missing = found.entries.where((e) => e.value == null).toList();
     return _Section(
-      title: 'Device tools',
+      title: tr('Device tools'),
       icon: Icons.phone_iphone_rounded,
       children: [
         _FolderRow(
-          label: 'Tools folder',
-          help:
-              'Folder with the libimobiledevice tools and idevicerestore. Empty = auto-detect '
-              '(a "tools" folder next to the app, PATH, Homebrew).',
+          label: tr('Tools folder'),
+          help: tr(
+            'Folder with the libimobiledevice tools and idevicerestore. Empty = auto-detect (a "tools" folder next to the app, PATH, Homebrew).',
+          ),
           path: s.deviceToolsDirectory,
-          placeholder: 'Auto-detect',
+          placeholder: tr('Auto-detect'),
           onPick: (p) =>
               update((x) => x.copyWith(deviceToolsDirectory: () => p)),
           onClear: s.deviceToolsDirectory == null
@@ -583,8 +699,10 @@ class _DeviceToolsSection extends ConsumerWidget {
                     update((x) => x.copyWith(deviceToolsDirectory: () => null)),
         ),
         _FolderRow(
-          label: 'Device data folder',
-          help: 'Backups, screenshots, imported photos, pulled files and crash logs.',
+          label: tr('Device data folder'),
+          help: tr(
+            'Backups, screenshots, imported photos, pulled files and crash logs.',
+          ),
           path: s.deviceDataDirectory,
           placeholder: ref.watch(deviceDataDirProvider),
           onPick: (p) =>
@@ -596,16 +714,23 @@ class _DeviceToolsSection extends ConsumerWidget {
         ),
         _RowShell(
           label: missing.isEmpty
-              ? 'All ${found.length} tools found'
-              : '${found.length - missing.length} of ${found.length} tools found',
+              ? trf('All {0} tools found', [found.length])
+              : trf('{0} of {1} tools found', [
+                  found.length - missing.length,
+                  found.length,
+                ]),
           help: missing.isEmpty
-              ? 'Every device feature is available.'
-              : 'Missing: ${missing.map((e) => '${e.key.executable} (${e.key.purpose})').join(', ')}',
+              ? tr('Every device feature is available.')
+              : trf('Missing: {0}', [
+                  missing
+                      .map((e) => '${e.key.executable} (${e.key.purpose})')
+                      .join(', '),
+                ]),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               NeonButton(
-                label: 'Re-check',
+                label: tr('Re-check'),
                 icon: Icons.refresh_rounded,
                 variant: NeonVariant.ghost,
                 compact: true,
@@ -613,7 +738,7 @@ class _DeviceToolsSection extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               NeonButton(
-                label: 'Setup assistant',
+                label: tr('Setup assistant'),
                 icon: Icons.build_circle_rounded,
                 compact: true,
                 onPressed: () {
@@ -632,7 +757,7 @@ class _DeviceToolsSection extends ConsumerWidget {
             children: [
               for (final e in found.entries)
                 Tooltip(
-                  message: e.value ?? 'Not found',
+                  message: e.value ?? tr('Not found'),
                   child: HudPill(
                     e.key.executable,
                     color: e.value != null
@@ -658,5 +783,8 @@ String _withDriveWarning(String help, String path) {
   final volume = missingVolume(path);
   return volume == null
       ? help
-      : '$help\n⚠ $volume is not connected: downloads will fail until it is.';
+      : trf('{0}\n⚠ {1} is not connected: downloads will fail until it is.', [
+          help,
+          volume,
+        ]);
 }

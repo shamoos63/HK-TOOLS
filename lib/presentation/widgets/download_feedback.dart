@@ -7,6 +7,7 @@ import '../../domain/entities/download_task.dart';
 import '../../domain/entities/ipsw_release.dart';
 import '../providers/download_providers.dart';
 import '../providers/ui_providers.dart';
+import '../../core/l10n/l10n.dart';
 
 /// Queues IPSW downloads; when the download folder is unusable (drive
 /// unplugged, no permission) shows why, with a shortcut to Settings, and
@@ -35,7 +36,7 @@ void showFolderError(
     duration: const Duration(seconds: 8),
     backgroundColor: HudColors.danger.withValues(alpha: 0.9),
     action: SnackBarAction(
-      label: 'SETTINGS',
+      label: tr('SETTINGS'),
       textColor: Colors.white,
       onPressed: () =>
           ref.read(sectionProvider.notifier).set(AppSection.settings),

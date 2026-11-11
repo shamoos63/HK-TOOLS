@@ -2,6 +2,8 @@
 /// see: booted iOS (lockdown), Recovery, or DFU.
 library;
 
+import '../../core/l10n/l10n.dart';
+
 enum DeviceMode {
   normal('Normal'),
   recovery('Recovery'),
@@ -9,9 +11,12 @@ enum DeviceMode {
   restore('Restore'),
   unknown('Unknown');
 
-  const DeviceMode(this.label);
+  const DeviceMode(this._label);
 
-  final String label;
+  final String _label;
+
+  /// In the interface language.
+  String get label => tr(_label);
 
   /// Booted OS reachable through lockdown (apps, files, backups, …).
   bool get isBooted => this == DeviceMode.normal;
@@ -286,9 +291,12 @@ enum RestoreStep {
   firmwareUpdate('Updating peripherals'),
   uploadImage('Uploading images');
 
-  const RestoreStep(this.label);
+  const RestoreStep(this._label);
 
-  final String label;
+  final String _label;
+
+  /// In the interface language.
+  String get label => tr(_label);
 
   static RestoreStep? fromIndex(int i) =>
       i >= 0 && i < values.length ? values[i] : null;

@@ -8,6 +8,7 @@ import '../../../services/setup/dependency_manager.dart';
 import '../../providers/core_providers.dart';
 import '../../providers/setup_providers.dart';
 import '../../widgets/hud_widgets.dart';
+import '../../../core/l10n/l10n.dart';
 
 /// Shows the setup assistant when something the device features need is
 /// missing (called once at startup, and from Settings).
@@ -61,14 +62,14 @@ class _SetupAssistantDialogState extends ConsumerState<SetupAssistantDialog> {
       backgroundColor: HudColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: HudColors.glassBorder),
+        side: BorderSide(color: HudColors.glassBorder),
       ),
       title: Row(
         children: [
-          const Icon(Icons.build_circle_rounded, color: HudColors.cyan),
+          Icon(Icons.build_circle_rounded, color: HudColors.cyan),
           const SizedBox(width: 10),
-          const Expanded(
-            child: Text('Setup assistant', style: TextStyle(fontSize: 17)),
+          Expanded(
+            child: Text(tr('Setup assistant'), style: TextStyle(fontSize: 17)),
           ),
           if (async.isLoading)
             const SizedBox(
@@ -86,10 +87,11 @@ class _SetupAssistantDialogState extends ConsumerState<SetupAssistantDialog> {
           children: [
             Text(
               allGood
-                  ? 'Everything the device features need is installed.'
-                  : 'HK Tools uses these components to work with iPhones and iPads. '
-                        'Missing ones can be installed for you.',
-              style: const TextStyle(color: HudColors.textMuted, fontSize: 13),
+                  ? tr('Everything the device features need is installed.')
+                  : tr(
+                      'HK Tools uses these components to work with iPhones and iPads. Missing ones can be installed for you.',
+                    ),
+              style: TextStyle(color: HudColors.textMuted, fontSize: 13),
             ),
             const SizedBox(height: 12),
             for (final s in statuses)
@@ -108,15 +110,13 @@ class _SetupAssistantDialogState extends ConsumerState<SetupAssistantDialog> {
             const SizedBox(height: 10),
             Text(
               Platform.isWindows
-                  ? 'Sources: Apple Devices from the Microsoft Store; libimobiledevice '
-                        'tools (github.com/jrjr/libimobiledevice-windows) and ipatool '
-                        '(github.com/majd/ipatool) from GitHub, checked against pinned '
-                        'SHA-256 hashes; pymobiledevice3 with uv (github.com/astral-sh/uv), '
-                        'which brings its own Python 3.12. Installing means you accept '
-                        'each package\'s license.'
-                  : 'Installs use Homebrew, and uv for pymobiledevice3 (with its own '
-                        'Python 3.12). Installing means you accept each package\'s license.',
-              style: const TextStyle(
+                  ? tr(
+                      'Sources: Apple Devices from the Microsoft Store; libimobiledevice tools (github.com/jrjr/libimobiledevice-windows) and ipatool (github.com/majd/ipatool) from GitHub, checked against pinned SHA-256 hashes; pymobiledevice3 with uv (github.com/astral-sh/uv), which brings its own Python 3.12. Installing means you accept each package\'s license.',
+                    )
+                  : tr(
+                      'Installs use Homebrew, and uv for pymobiledevice3 (with its own Python 3.12). Installing means you accept each package\'s license.',
+                    ),
+              style: TextStyle(
                 color: HudColors.textMuted,
                 fontSize: 11.5,
                 height: 1.4,
@@ -126,8 +126,8 @@ class _SetupAssistantDialogState extends ConsumerState<SetupAssistantDialog> {
               dense: true,
               contentPadding: EdgeInsets.zero,
               value: checkAtStartup,
-              title: const Text(
-                'Check at startup',
+              title: Text(
+                tr('Check at startup'),
                 style: TextStyle(fontSize: 12.5),
               ),
               onChanged: (v) => ref
@@ -139,7 +139,7 @@ class _SetupAssistantDialogState extends ConsumerState<SetupAssistantDialog> {
       ),
       actions: [
         NeonButton(
-          label: 'Check again',
+          label: tr('Check again'),
           icon: Icons.refresh_rounded,
           variant: NeonVariant.ghost,
           compact: true,
@@ -151,14 +151,16 @@ class _SetupAssistantDialogState extends ConsumerState<SetupAssistantDialog> {
                 },
         ),
         NeonButton(
-          label: allGood ? 'Done' : 'Close',
+          label: allGood ? tr('Done') : tr('Close'),
           variant: NeonVariant.ghost,
           compact: true,
           onPressed: busy ? null : () => Navigator.pop(context),
         ),
         if (installable.isNotEmpty)
           NeonButton(
-            label: busy ? 'Installing…' : 'Install selected (${chosen.length})',
+            label: busy
+                ? tr('Installing…')
+                : trf('Install selected ({0})', [chosen.length]),
             icon: Icons.download_rounded,
             compact: true,
             onPressed: busy || chosen.isEmpty
@@ -196,7 +198,7 @@ class _DependencyRow extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        color: Colors.white.withValues(alpha: 0.03),
+        color: HudColors.overlay.withValues(alpha: 0.03),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -222,7 +224,7 @@ class _DependencyRow extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     HudPill(
-                      d.required ? 'Required' : 'Optional',
+                      d.required ? tr('Required') : tr('Optional'),
                       color: d.required ? HudColors.cyan : HudColors.textMuted,
                       mono: false,
                     ),
@@ -231,10 +233,7 @@ class _DependencyRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   d.purpose,
-                  style: const TextStyle(
-                    color: HudColors.textMuted,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: HudColors.textMuted, fontSize: 12),
                 ),
                 if (status.detail != null)
                   Text(
@@ -251,7 +250,7 @@ class _DependencyRow extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 3),
                     child: SelectableText(
                       status.manualHint!,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: HudColors.warning,
                         fontSize: 11.5,
                       ),
@@ -271,10 +270,10 @@ class _DependencyRow extends StatelessWidget {
                       ],
                     ),
                   ),
-                  InstallDone() => const Padding(
+                  InstallDone() => Padding(
                     padding: EdgeInsets.only(top: 4),
                     child: Text(
-                      'Installed',
+                      tr('Installed'),
                       style: TextStyle(
                         color: HudColors.success,
                         fontSize: 11.5,
@@ -285,10 +284,7 @@ class _DependencyRow extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 4),
                     child: SelectableText(
                       message,
-                      style: const TextStyle(
-                        color: HudColors.danger,
-                        fontSize: 11.5,
-                      ),
+                      style: TextStyle(color: HudColors.danger, fontSize: 11.5),
                     ),
                   ),
                   null => const SizedBox.shrink(),

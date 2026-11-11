@@ -17,6 +17,7 @@ import '../../providers/device_providers.dart';
 import '../../widgets/hud_widgets.dart';
 import 'device_widgets.dart';
 import 'gallery_viewer.dart';
+import '../../../core/l10n/l10n.dart';
 
 const _mediaExtensions = {
   '.jpg', '.jpeg', '.png', '.heic', '.heif', '.gif', '.dng', //
@@ -28,7 +29,7 @@ const _decodable = {'.jpg', '.jpeg', '.png', '.gif'};
 final galleryItemsProvider = FutureProvider.autoDispose
     .family<List<AfcEntry>, String>((ref, deviceId) async {
       final device = ref.read(devicesProvider).byId(deviceId);
-      if (device == null) throw StateError('Device disconnected');
+      if (device == null) throw StateError(tr('Device disconnected'));
       final svc = ref.watch(deviceServiceProvider);
       final albums = (await svc.listDirectory(
         device,
@@ -52,9 +53,12 @@ enum _Sort {
   oldest('Oldest first'),
   name('Name');
 
-  const _Sort(this.label);
+  const _Sort(this._label);
 
-  final String label;
+  final String _label;
+
+  /// In the interface language.
+  String get label => tr(_label);
 }
 
 String _albumOf(AfcEntry e) => p.posix.basename(p.posix.dirname(e.path));
@@ -136,7 +140,7 @@ class _GalleryTabState extends ConsumerState<GalleryTab> {
       settingsProvider.select((s) => s.galleryPrivacyMode),
     );
     return DeviceCard(
-      title: 'Gallery',
+      title: tr('Gallery'),
       icon: Icons.photo_library_rounded,
       fill: true,
       trailing: Row(
@@ -148,7 +152,7 @@ class _GalleryTabState extends ConsumerState<GalleryTab> {
             color: privacy ? HudColors.cyan : HudColors.textMuted,
           ),
           const SizedBox(width: 6),
-          const Text('Privacy mode', style: TextStyle(fontSize: 12.5)),
+          Text(tr('Privacy mode'), style: TextStyle(fontSize: 12.5)),
           Switch(
             value: privacy,
             onChanged: (v) => ref
@@ -157,7 +161,7 @@ class _GalleryTabState extends ConsumerState<GalleryTab> {
           ),
           HudIconButton(
             icon: Icons.refresh_rounded,
-            tooltip: 'Reload',
+            tooltip: tr('Reload'),
             onPressed: () =>
                 ref.invalidate(galleryItemsProvider(widget.device.id)),
           ),
@@ -171,10 +175,10 @@ class _GalleryTabState extends ConsumerState<GalleryTab> {
         ),
         data: (all) {
           if (all.isEmpty) {
-            return const EmptyState(
+            return EmptyState(
               icon: Icons.photo_outlined,
-              title: 'No photos',
-              message: 'The camera roll (DCIM) is empty.',
+              title: tr('No photos'),
+              message: tr('The camera roll (DCIM) is empty.'),
             );
           }
           final albums = {for (final e in all) _albumOf(e)}.toList()..sort();
@@ -200,7 +204,7 @@ class _GalleryTabState extends ConsumerState<GalleryTab> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   HudChipTab(
-                    label: 'All albums',
+                    label: tr('All albums'),
                     active: _album == null,
                     onTap: () => setState(() {
                       _album = null;
@@ -222,7 +226,7 @@ class _GalleryTabState extends ConsumerState<GalleryTab> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   HudChipTab(
-                    label: 'All years ${inAlbum.length}',
+                    label: trf('All years {0}', [inAlbum.length]),
                     active: _year == null,
                     onTap: () => setState(() => _year = null),
                   ),
@@ -234,7 +238,7 @@ class _GalleryTabState extends ConsumerState<GalleryTab> {
                     ),
                   const SizedBox(width: 10),
                   PopupMenuButton<_Sort>(
-                    tooltip: 'Sort',
+                    tooltip: tr('Sort'),
                     onSelected: (v) => setState(() => _sort = v),
                     itemBuilder: (_) => [
                       for (final s in _Sort.values)
@@ -263,12 +267,12 @@ class _GalleryTabState extends ConsumerState<GalleryTab> {
                 children: [
                   Text(
                     picked > 0
-                        ? '$picked selected · ${shown.length} shown'
+                        ? trf('{0} selected · {1} shown', [
+                            picked,
+                            shown.length,
+                          ])
                         : '${shown.length} shown',
-                    style: const TextStyle(
-                      color: HudColors.textMuted,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: HudColors.textMuted, fontSize: 12),
                   ),
                   TextButton(
                     onPressed: shown.isEmpty
@@ -284,14 +288,14 @@ class _GalleryTabState extends ConsumerState<GalleryTab> {
                     child: Text(
                       shown.isNotEmpty &&
                               shown.every((e) => _picked.contains(e.path))
-                          ? 'Clear selection'
-                          : 'Select shown',
+                          ? tr('Clear selection')
+                          : tr('Select shown'),
                       style: const TextStyle(fontSize: 12.5),
                     ),
                   ),
                   if (picked > 0) ...[
                     NeonButton(
-                      label: 'Export selected ($picked)',
+                      label: trf('Export selected ({0})', [picked]),
                       icon: Icons.ios_share_rounded,
                       compact: true,
                       onPressed: _busy == null
@@ -306,8 +310,8 @@ class _GalleryTabState extends ConsumerState<GalleryTab> {
                   ],
                   NeonButton(
                     label: filtered
-                        ? 'Export shown (${shown.length})'
-                        : 'Export all (${all.length})',
+                        ? trf('Export shown ({0})', [shown.length])
+                        : trf('Export all ({0})', [all.length]),
                     icon: Icons.drive_folder_upload_rounded,
                     variant: NeonVariant.ghost,
                     compact: true,
@@ -331,9 +335,9 @@ class _GalleryTabState extends ConsumerState<GalleryTab> {
               const SizedBox(height: 8),
               Expanded(
                 child: shown.isEmpty
-                    ? const EmptyState(
+                    ? EmptyState(
                         icon: Icons.photo_outlined,
-                        title: 'Nothing matches these filters',
+                        title: tr('Nothing matches these filters'),
                       )
                     : _SelectableGrid(
                         items: shown,
@@ -375,9 +379,9 @@ class _GalleryTabState extends ConsumerState<GalleryTab> {
     initialDirectory: deviceFolder(
       ref.read(deviceDataDirProvider),
       widget.device,
-      'Photos',
+      tr('Photos'),
     ),
-    confirmButtonText: 'Export here',
+    confirmButtonText: tr('Export here'),
   );
 
   /// Copies [items] to a chosen folder, one file at a time (keeps album
@@ -385,16 +389,20 @@ class _GalleryTabState extends ConsumerState<GalleryTab> {
   Future<void> _export(List<AfcEntry> items, String what) async {
     final dest = await _pickDest();
     if (dest == null || !mounted) return;
-    setState(() => _busy = 'Exporting ${items.length} item(s)…');
+    setState(() => _busy = trf('Exporting {0} item(s)…', [items.length]));
     await runDeviceAction(
       context,
-      'Exported ${items.length} item(s) to $dest',
+      trf('Exported {0} item(s) to {1}', [items.length, dest]),
       () async {
         final svc = ref.read(deviceServiceProvider);
         for (var i = 0; i < items.length; i++) {
           if (mounted) {
             setState(
-              () => _busy = 'Exporting $what: ${i + 1} / ${items.length}…',
+              () => _busy = trf('Exporting {0}: {1} / {2}…', [
+                what,
+                i + 1,
+                items.length,
+              ]),
             );
           }
           final folder = Directory(p.join(dest, _albumOf(items[i])));
@@ -418,10 +426,10 @@ class _GalleryTabState extends ConsumerState<GalleryTab> {
   Future<void> _exportAll() async {
     final dest = await _pickDest();
     if (dest == null || !mounted) return;
-    setState(() => _busy = 'Exporting the whole camera roll…');
+    setState(() => _busy = tr('Exporting the whole camera roll…'));
     await runDeviceAction(
       context,
-      'Camera roll exported to $dest',
+      trf('Camera roll exported to {0}', [dest]),
       () => ref
           .read(deviceServiceProvider)
           .pull(widget.device, '/DCIM', p.join(dest, 'DCIM'), recursive: true),
@@ -469,11 +477,11 @@ class _Tile extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
-            color: Colors.white.withValues(alpha: 0.04),
+            color: HudColors.overlay.withValues(alpha: 0.04),
             border: Border.all(
               color: selected
                   ? HudColors.cyan
-                  : Colors.white.withValues(alpha: 0.06),
+                  : HudColors.overlay.withValues(alpha: 0.06),
               width: selected ? 2 : 1,
             ),
           ),
@@ -504,7 +512,7 @@ class _Tile extends StatelessWidget {
                   child: Icon(
                     Icons.visibility_off_rounded,
                     size: 22,
-                    color: Colors.white.withValues(alpha: 0.55),
+                    color: HudColors.overlay.withValues(alpha: 0.55),
                   ),
                 ),
               Positioned(
@@ -528,7 +536,7 @@ class _Tile extends StatelessWidget {
                   ),
                 ),
               if (selected)
-                const Positioned(
+                Positioned(
                   left: 6,
                   top: 6,
                   child: Icon(

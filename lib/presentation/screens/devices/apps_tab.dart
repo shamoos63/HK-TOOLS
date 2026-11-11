@@ -10,6 +10,7 @@ import '../../providers/device_providers.dart';
 import '../../widgets/hud_widgets.dart';
 import 'device_widgets.dart';
 import 'files_tab.dart';
+import '../../../core/l10n/l10n.dart';
 
 class AppsTab extends ConsumerStatefulWidget {
   const AppsTab({super.key, required this.device});
@@ -57,7 +58,7 @@ class _AppsTabState extends ConsumerState<AppsTab> {
     final async = ref.watch(deviceAppsProvider(_key));
     final icons = ref.watch(appIconsProvider);
     return DeviceCard(
-      title: 'Applications',
+      title: tr('Applications'),
       icon: Icons.apps_rounded,
       fill: true,
       trailing: Row(
@@ -69,16 +70,16 @@ class _AppsTabState extends ConsumerState<AppsTab> {
             child: TextField(
               onChanged: (v) => setState(() => _filter = v.toLowerCase()),
               style: const TextStyle(fontSize: 13),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 isDense: true,
-                hintText: 'Filter apps',
+                hintText: tr('Filter apps'),
                 prefixIcon: Icon(Icons.search_rounded, size: 16),
                 border: OutlineInputBorder(),
               ),
             ),
           ),
           const SizedBox(width: 10),
-          const Text('System', style: TextStyle(fontSize: 12.5)),
+          Text(tr('System'), style: TextStyle(fontSize: 12.5)),
           Switch(
             value: _system,
             onChanged: (v) {
@@ -88,12 +89,12 @@ class _AppsTabState extends ConsumerState<AppsTab> {
           ),
           HudIconButton(
             icon: Icons.refresh_rounded,
-            tooltip: 'Reload',
+            tooltip: tr('Reload'),
             onPressed: () => ref.invalidate(deviceAppsProvider(_key)),
           ),
           const SizedBox(width: 6),
           NeonButton(
-            label: _installing == null ? 'Install IPA' : 'Installing…',
+            label: _installing == null ? 'Install IPA' : tr('Installing…'),
             icon: Icons.add_rounded,
             compact: true,
             onPressed: _installing == null ? _install : null,
@@ -105,7 +106,7 @@ class _AppsTabState extends ConsumerState<AppsTab> {
         children: [
           if (_installing != null) ...[
             Text(
-              'Installing ${p.basename(_installing!)}…',
+              trf('Installing {0}…', [p.basename(_installing!)]),
               style: const TextStyle(fontSize: 12.5),
             ),
             const SizedBox(height: 6),
@@ -129,16 +130,16 @@ class _AppsTabState extends ConsumerState<AppsTab> {
                     )
                     .toList();
                 if (shown.isEmpty) {
-                  return const EmptyState(
+                  return EmptyState(
                     icon: Icons.apps_outage_rounded,
-                    title: 'No apps',
+                    title: tr('No apps'),
                   );
                 }
                 return ListView.separated(
                   itemCount: shown.length,
                   separatorBuilder: (_, _) => Divider(
                     height: 1,
-                    color: Colors.white.withValues(alpha: 0.05),
+                    color: HudColors.overlay.withValues(alpha: 0.05),
                   ),
                   itemBuilder: (_, i) => _AppRow(
                     app: shown[i],
@@ -159,15 +160,15 @@ class _AppsTabState extends ConsumerState<AppsTab> {
 
   Future<void> _install() async {
     final file = await openFile(
-      acceptedTypeGroups: const [
-        XTypeGroup(label: 'iOS app', extensions: ['ipa', 'ipcc']),
+      acceptedTypeGroups: [
+        XTypeGroup(label: tr('iOS app'), extensions: ['ipa', 'ipcc']),
       ],
     );
     if (file == null || !mounted) return;
     setState(() => _installing = file.path);
     await runDeviceAction(
       context,
-      'Installed ${p.basename(file.path)}',
+      trf('Installed {0}', [p.basename(file.path)]),
       () =>
           ref.read(deviceServiceProvider).installApp(widget.device, file.path),
     );
@@ -179,15 +180,15 @@ class _AppsTabState extends ConsumerState<AppsTab> {
   Future<void> _uninstall(InstalledApp app) async {
     final ok = await confirmDialog(
       context,
-      title: 'Uninstall ${app.displayName}?',
-      message: 'The app and its data are removed from the device.',
-      confirmLabel: 'Uninstall',
+      title: trf('Uninstall {0}?', [app.displayName]),
+      message: tr('The app and its data are removed from the device.'),
+      confirmLabel: tr('Uninstall'),
       danger: true,
     );
     if (!ok || !mounted) return;
     await runDeviceAction(
       context,
-      'Uninstalled ${app.displayName}',
+      trf('Uninstalled {0}', [app.displayName]),
       () => ref
           .read(deviceServiceProvider)
           .uninstallApp(widget.device, app.bundleId),
@@ -276,13 +277,13 @@ class _AppRow extends StatelessWidget {
         HudIconButton(
           icon: Icons.folder_open_rounded,
           tooltip: onDocuments == null
-              ? 'App does not share files'
-              : 'Browse app documents',
+              ? tr('App does not share files')
+              : tr('Browse app documents'),
           onPressed: onDocuments,
         ),
         HudIconButton(
           icon: Icons.delete_outline_rounded,
-          tooltip: app.isSystem ? 'System app' : 'Uninstall',
+          tooltip: app.isSystem ? tr('System app') : tr('Uninstall'),
           color: HudColors.danger,
           onPressed: app.isSystem ? null : onUninstall,
         ),

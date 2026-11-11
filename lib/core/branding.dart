@@ -3,7 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 /// App identity and author credit, shown in the sidebar and Settings › About.
 abstract final class Branding {
   static const appName = 'HK Tools';
-  static const version = '1.0.0';
+  static const version = '3.0.0';
   static const author = 'Hisham Khateeb';
   static const credit = 'Made By Hisham Khateeb for the Community.';
 
