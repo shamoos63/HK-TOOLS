@@ -271,13 +271,39 @@ class _ProgressCard extends ConsumerWidget {
                   ),
                 if (state.status == JobStatus.failed) ...[
                   const SizedBox(width: 8),
-                  NeonButton(
-                    label: tr('Try again'),
-                    icon: Icons.refresh_rounded,
-                    variant: NeonVariant.ghost,
-                    compact: true,
-                    onPressed: ctl.retry,
-                  ),
+                  if (!req.erase &&
+                      RestoreInsight.explain(
+                        state.log,
+                        aborted: state.aborted,
+                      ).needsErase)
+                    NeonButton(
+                      label: tr('Try again with erase'),
+                      icon: Icons.delete_forever_rounded,
+                      variant: NeonVariant.danger,
+                      compact: true,
+                      onPressed: () async {
+                        if (await confirmDialog(
+                          context,
+                          title: tr('Erase and restore?'),
+                          message: tr(
+                            'Everything on the device is erased and a clean system is installed. This cannot be undone.',
+                          ),
+                          confirmLabel: tr('Erase and restore'),
+                          danger: true,
+                          typeToConfirm: 'ERASE',
+                        )) {
+                          await ctl.retry(erase: true);
+                        }
+                      },
+                    )
+                  else
+                    NeonButton(
+                      label: tr('Try again'),
+                      icon: Icons.refresh_rounded,
+                      variant: NeonVariant.ghost,
+                      compact: true,
+                      onPressed: ctl.retry,
+                    ),
                 ],
                 const SizedBox(width: 8),
                 NeonButton(

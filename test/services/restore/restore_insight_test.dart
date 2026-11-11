@@ -59,4 +59,23 @@ void main() {
     ];
     expect(RestoreInsight.explain(log).title, 'The device lost its connection');
   });
+
+  test('update on a wiped device asks for an erase', () {
+    final f = RestoreInsight.explain([
+      const RestoreLogEvent('Unable to successfully restore device', isError: true),
+      const RestoreLogEvent(
+        'Checkpoint FAILURE id: 0x648 result=0: [0]D(Missing data volume on APFS formatted device, erase required)',
+      ),
+    ]);
+    expect(f.title, 'This device has to be erased');
+    expect(f.needsErase, isTrue);
+  });
+
+  test('Yonkers ticket failure points at the restore tools', () {
+    final f = RestoreInsight.explain([
+      _e('Unable to fetch Yonkers ticket'),
+      _e("restore_send_firmware_updater_data: Couldn't get Yonkers firmware data"),
+    ]);
+    expect(f.title, 'The restore tools need an update for this iPhone');
+  });
 }

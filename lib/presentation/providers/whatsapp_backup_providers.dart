@@ -27,15 +27,7 @@ final waAllBackupsProvider = FutureProvider.autoDispose<List<ContactsSource>>((
 ) {
   final root = p.join(ref.watch(deviceDataDirProvider), 'Backups');
   final extra = ref.watch(waExtraBackupRootsProvider);
-  return Isolate.run(
-    () => [
-      for (final s in BackupContacts.allBackups(
-        appBackupRoot: root,
-        extraRoots: extra,
-      ))
-        if (s.encrypted || WaBackupLocator.hasWhatsApp(s.directory)) s,
-    ],
-  );
+  return _findWhatsAppBackups(root, extra);
 });
 
 enum WaRestorePhase { idle, preparing, restoring, done, failed }
@@ -111,13 +103,7 @@ class WaBackupRestoreController extends Notifier<WaRestoreState> {
     final outRoot = p.join(ref.read(waWorkDirProvider), 'restore-from-backup');
     final String restoreDir;
     try {
-      restoreDir = await Isolate.run(
-        () => WaBackupPatcher.buildRestoreSet(
-          backupDir: backupDir,
-          outRoot: outRoot,
-          business: business,
-        ),
-      );
+      restoreDir = await _buildRestoreSet(backupDir, outRoot, business);
     } catch (e) {
       return fail('$e');
     }
@@ -178,9 +164,41 @@ class WaBackupRestoreController extends Notifier<WaRestoreState> {
 /// Which WhatsApp versions a backup holds: `false` = WhatsApp, `true` =
 /// WhatsApp Business.
 final waBackupFlavorsProvider = FutureProvider.autoDispose
-    .family<List<bool>, String>(
-      (ref, dir) => Isolate.run(
-        () =>
-            {for (final m in WaBackupLocator.find(dir)) m.isBusiness}.toList(),
-      ),
+    .family<List<bool>, String>((ref, dir) => _backupFlavors(dir));
+
+// Isolate entry points. They are top-level so their closures capture only
+// plain values: a closure written inside a provider or controller also
+// captures `ref` / `this`, which can't be sent to another isolate.
+
+Future<List<ContactsSource>> _findWhatsAppBackups(
+  String root,
+  List<String> extra,
+) => Isolate.run(
+  () => [
+    for (final s in BackupContacts.allBackups(
+      appBackupRoot: root,
+      extraRoots: extra,
+    ))
+      if (s.encrypted || WaBackupLocator.hasWhatsApp(s.directory)) s,
+  ],
+);
+
+Future<String> _buildRestoreSet(
+  String backupDir,
+  String outRoot,
+  bool business,
+) {
+  final arabic = L10n.arabic; // error messages in the interface language
+  return Isolate.run(() {
+    L10n.arabic = arabic;
+    return WaBackupPatcher.buildRestoreSet(
+      backupDir: backupDir,
+      outRoot: outRoot,
+      business: business,
     );
+  });
+}
+
+Future<List<bool>> _backupFlavors(String dir) => Isolate.run(
+  () => {for (final m in WaBackupLocator.find(dir)) m.isBusiness}.toList(),
+);

@@ -563,7 +563,9 @@ class RestoreController extends Notifier<RestoreState> {
   }
 
   /// Runs the last restore again (same IPSW, device and mode).
-  Future<void> retry() async {
+  /// [erase] overrides the last restore's choice (e.g. a failed update that
+  /// now needs an erase).
+  Future<void> retry({bool? erase}) async {
     final last = state.request;
     if (state.running || last == null) return;
     // The device may have come back with a different id (e.g. now in
@@ -572,7 +574,7 @@ class RestoreController extends Notifier<RestoreState> {
       RestoreRequest(
         ipswPath: last.ipswPath,
         device: last.device,
-        erase: last.erase,
+        erase: erase ?? last.erase,
         cacheDirectory: last.cacheDirectory,
         logFile: newLogFile(),
       ),

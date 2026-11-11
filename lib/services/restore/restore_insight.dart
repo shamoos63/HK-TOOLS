@@ -163,6 +163,7 @@ abstract final class RestoreInsight {
           message: rule.message,
           tips: rule.tips,
           detail: lastError,
+          needsErase: rule.needsErase,
         );
       }
     }
@@ -182,6 +183,40 @@ abstract final class RestoreInsight {
   }
 
   static const _rules = [
+    _Rule(
+      ['erase required', 'missing data volume', 'data volume is missing'],
+      'This device has to be erased',
+      'An update keeps the data on the device, but this one has no usable '
+          'data storage left (usually after an earlier restore stopped '
+          'half-way). Only an erase restore can bring it back.',
+      [
+        'Press "Try again with erase". Everything on the device is erased.',
+        'Restore a backup afterwards if you have one.',
+      ],
+      needsErase: true,
+    ),
+    _Rule(
+      [
+        'unable to fetch yonkers ticket',
+        'couldn\'t get yonkers',
+        'unable to fetch rose ticket',
+        'unable to fetch savage ticket',
+        'unable to fetch veridian ticket',
+        'unable to fetch baobab ticket',
+        'unable to send firmwareupdater data',
+      ],
+      'The restore tools need an update for this iPhone',
+      'Apple\'s signing server didn\'t approve one of the iPhone\'s chip '
+          'firmwares (the Face ID / security co-processor parts). New '
+          'iPhones need the latest versions of idevicerestore and libtatsu to '
+          'ask for them correctly. The device is now in Recovery mode.',
+      [
+        'Update the tools: "brew upgrade libtatsu", then rebuild idevicerestore from its latest source.',
+        'Then press "Try again with erase".',
+        'Check that the firmware is still signed for this iPhone.',
+      ],
+      needsErase: true,
+    ),
     _Rule(
       [
         'not being signed',
@@ -314,12 +349,19 @@ abstract final class RestoreInsight {
 }
 
 class _Rule {
-  const _Rule(this.needles, this.title, this.message, this.tips);
+  const _Rule(
+    this.needles,
+    this.title,
+    this.message,
+    this.tips, {
+    this.needsErase = false,
+  });
 
   final List<String> needles;
   final String title;
   final String message;
   final List<String> tips;
+  final bool needsErase;
 }
 
 /// Why a restore failed, in plain words.
@@ -329,10 +371,14 @@ class RestoreFailure {
     required this.message,
     required this.tips,
     this.detail,
+    this.needsErase = false,
   });
 
   final String title;
   final String message;
+
+  /// Only an erase restore can work now ("Try again with erase").
+  final bool needsErase;
 
   /// Things to try, most likely fix first.
   final List<String> tips;

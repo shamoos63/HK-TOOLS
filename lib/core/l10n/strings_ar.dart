@@ -1178,4 +1178,21 @@ const arabicStrings = <String, String>{
   '3/3 Resetting {0} on the phone…': '3/3 إعادة تعيين {0} على الهاتف…',
   'Done: {0} messages and {1} photos, videos and voice notes added. {2} is open on the phone: agree, confirm your number, tap Restore when it finds the backup, and enter this key:': 'تم: أُضيفت {0} رسالة و{1} صورة وفيديو ورسالة صوتية. {2} مفتوح على الهاتف: وافق، وأكّد رقمك، واضغط استعادة عندما يجد النسخة الاحتياطية، وأدخل هذا المفتاح:',
   'Copy key': 'نسخ المفتاح',
+  'Try again with erase': 'حاول مرة أخرى مع المسح',
+  'Erase and restore?': 'مسح واستعادة؟',
+  'Everything on the device is erased and a clean system is installed. This cannot be undone.':
+      'سيتم مسح كل شيء على الجهاز وتثبيت نظام نظيف. لا يمكن التراجع عن ذلك.',
+  'This device has to be erased': 'يجب مسح هذا الجهاز',
+  'An update keeps the data on the device, but this one has no usable data storage left (usually after an earlier restore stopped half-way). Only an erase restore can bring it back.': 'التحديث يحتفظ بالبيانات على الجهاز، لكن هذا الجهاز لم تعد لديه مساحة بيانات صالحة (عادة بعد استعادة سابقة توقفت في المنتصف). فقط الاستعادة مع المسح يمكنها إعادته للعمل.',
+  'Press "Try again with erase". Everything on the device is erased.':
+      'اضغط "حاول مرة أخرى مع المسح". سيتم مسح كل شيء على الجهاز.',
+  'Restore a backup afterwards if you have one.':
+      'استعد نسخة احتياطية بعد ذلك إن كانت لديك واحدة.',
+  'The restore tools need an update for this iPhone':
+      'أدوات الاستعادة تحتاج إلى تحديث لهذا iPhone',
+  'Apple\'s signing server didn\'t approve one of the iPhone\'s chip firmwares (the Face ID / security co-processor parts). New iPhones need the latest versions of idevicerestore and libtatsu to ask for them correctly. The device is now in Recovery mode.': 'لم يوافق خادم التوقيع من Apple على أحد البرامج الثابتة لشرائح iPhone (أجزاء Face ID والمعالج الأمني). أجهزة iPhone الحديثة تحتاج أحدث إصدارات idevicerestore وlibtatsu لطلبها بشكل صحيح. الجهاز الآن في وضع الاسترداد.',
+  'Update the tools: "brew upgrade libtatsu", then rebuild idevicerestore from its latest source.': 'حدّث الأدوات: "brew upgrade libtatsu"، ثم أعد بناء idevicerestore من أحدث مصدر.',
+  'Then press "Try again with erase".': 'ثم اضغط "حاول مرة أخرى مع المسح".',
+  'Check that the firmware is still signed for this iPhone.':
+      'تأكد من أن البرنامج الثابت لا يزال موقّعاً لهذا iPhone.',
 };
