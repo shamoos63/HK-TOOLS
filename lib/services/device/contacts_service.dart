@@ -161,10 +161,16 @@ class ContactsSource {
     this.date,
     this.encrypted = false,
     this.deviceName,
+    this.udid,
+    this.productType,
   });
 
-  /// `<backup root>/<udid>`.
+  /// `<backup root>/<udid>` (or `<root>/<name date>/<udid>`).
   final String directory;
+
+  /// Device the backup was made from.
+  final String? udid;
+  final String? productType;
 
   /// "HK Tools" or "Finder / iTunes".
   final String origin;
@@ -218,7 +224,12 @@ abstract final class BackupContacts {
       origin: origin,
       date: date is DateTime ? date.toLocal() : null,
       encrypted: m.boolean('IsEncrypted') ?? false,
-      deviceName: i.str('Device Name'),
+      deviceName: i.str('Device Name') ?? i.str('Display Name'),
+      udid:
+          i.str('Unique Identifier') ??
+          i.str('Target Identifier') ??
+          p.basename(dir),
+      productType: i.str('Product Type'),
     );
   }
 
@@ -245,31 +256,104 @@ abstract final class BackupContacts {
     return const [];
   }
 
-  /// Backups of [udid] in the app's backup folder and the system locations,
-  /// newest first.
-  static List<ContactsSource> sourcesFor(
-    String udid, {
-    required String appBackupRoot,
+  /// Where 3uTools keeps backups (it uses the iTunes format). The folder can
+  /// be changed in 3uTools, so "Choose backup folder…" covers the rest.
+  static List<String> threeUToolsBackupRoots() {
+    final env = Platform.environment;
+    final home = env['HOME'] ?? env['USERPROFILE'] ?? '';
+    if (Platform.isWindows) {
+      return [
+        for (final drive in const ['C:', 'D:', 'E:'])
+          p.join('$drive\\', '3uTools', 'Backup'),
+        p.join(home, 'Documents', '3uTools', 'Backup'),
+        p.join(env['APPDATA'] ?? '', '3uTools', 'Backup'),
+      ];
+    }
+    if (Platform.isMacOS) {
+      return [
+        p.join(home, 'Documents', '3uTools', 'Backup'),
+        p.join(home, 'Library', 'Application Support', '3uTools', 'Backup'),
+      ];
+    }
+    return const [];
+  }
+
+  /// Every backup root this app knows about, with a label for its origin.
+  static List<(String, String)> knownBackupRoots(String appBackupRoot) => [
+    (appBackupRoot, 'HK Tools'),
+    for (final r in systemBackupRoots()) (r, 'Finder / iTunes'),
+    for (final r in threeUToolsBackupRoots()) (r, '3uTools'),
+  ];
+
+  /// `true` when [dir] holds an iTunes-format backup (`Info.plist` plus a
+  /// manifest).
+  static bool isBackupDir(String dir) =>
+      File(p.join(dir, 'Info.plist')).existsSync() &&
+      (File(p.join(dir, 'Manifest.db')).existsSync() ||
+          File(p.join(dir, 'Manifest.plist')).existsSync());
+
+  /// Backups at [root] or up to [depth] folders below it. HK Tools names its
+  /// backups `<root>/<device name> <date>/<udid>`, iTunes uses
+  /// `<root>/<udid>`, and 3uTools nests them by date.
+  static List<ContactsSource> findBackups(
+    String root, {
+    required String origin,
+    int depth = 3,
   }) {
     final out = <ContactsSource>[];
-    void add(String root, String origin) {
+    void walk(String dir, int left) {
       try {
-        final s = describe(p.join(root, udid), origin: origin);
-        if (s != null) out.add(s);
+        if (isBackupDir(dir)) {
+          final s = describe(dir, origin: origin);
+          if (s != null) out.add(s);
+          return;
+        }
+        if (left == 0) return;
+        for (final d in Directory(dir).listSync().whereType<Directory>()) {
+          final name = p.basename(d.path);
+          if (name.startsWith('.')) continue;
+          walk(d.path, left - 1);
+        }
       } on FileSystemException {
         // e.g. macOS denies MobileSync without Full Disk Access.
       }
     }
 
-    add(appBackupRoot, 'HK Tools');
-    for (final r in systemBackupRoots()) {
-      add(r, 'Finder / iTunes');
+    if (Directory(root).existsSync()) walk(root, depth);
+    return out;
+  }
+
+  /// Every backup on this computer (HK Tools, Finder / iTunes, 3uTools and
+  /// [extraRoots]), newest first.
+  static List<ContactsSource> allBackups({
+    required String appBackupRoot,
+    List<String> extraRoots = const [],
+  }) {
+    final seen = <String>{};
+    final out = <ContactsSource>[];
+    for (final (root, origin) in [
+      ...knownBackupRoots(appBackupRoot),
+      for (final r in extraRoots) (r, 'Folder'),
+    ]) {
+      for (final s in findBackups(root, origin: origin)) {
+        if (seen.add(p.normalize(s.directory))) out.add(s);
+      }
     }
     out.sort(
       (a, b) => (b.date ?? DateTime(0)).compareTo(a.date ?? DateTime(0)),
     );
     return out;
   }
+
+  /// Backups of [udid] in the app's backup folder and the system locations,
+  /// newest first.
+  static List<ContactsSource> sourcesFor(
+    String udid, {
+    required String appBackupRoot,
+  }) => [
+    for (final s in allBackups(appBackupRoot: appBackupRoot))
+      if (s.udid?.toLowerCase() == udid.toLowerCase()) s,
+  ];
 
   /// Loads every contact from the backup in [backupDir] on a background
   /// isolate.

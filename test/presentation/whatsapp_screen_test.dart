@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hk_ipsw_manager/core/theme/hud_theme.dart';
 import 'package:hk_ipsw_manager/presentation/providers/core_providers.dart';
 import 'package:hk_ipsw_manager/presentation/providers/device_providers.dart';
+import 'package:hk_ipsw_manager/presentation/providers/whatsapp_backup_providers.dart';
 import 'package:hk_ipsw_manager/presentation/providers/whatsapp_providers.dart';
 import 'package:hk_ipsw_manager/presentation/screens/whatsapp/whatsapp_screen.dart';
 import 'package:hk_ipsw_manager/services/whatsapp/wa_parser.dart';
@@ -38,7 +39,7 @@ void main() {
     expect(find.text('Key file'), findsNothing); // only for encrypted backups
   });
 
-  testWidgets('From iPhone prompts to connect a device when none is paired', (
+  testWidgets('iPhone / backup source works without a connected iPhone', (
     tester,
   ) async {
     final container = ProviderContainer(
@@ -46,12 +47,15 @@ void main() {
         appSupportDirProvider.overrideWithValue('/tmp/hk_support'),
         downloadsDirProvider.overrideWithValue('/tmp/hk_downloads'),
         devicesProvider.overrideWith(_NoDevices.new), // no polling timer
+        waAllBackupsProvider.overrideWith((ref) async => const []),
       ],
     );
     await show(tester, container);
     container.read(waSourceModeProvider.notifier).set(WaSourceMode.iphone);
     await tester.pump();
-    expect(find.textContaining('Connect and trust an iPhone'), findsOneWidget);
+    await tester.pump();
+    expect(find.textContaining('No iPhone connected'), findsOneWidget);
+    expect(find.text('Choose backup folder…'), findsOneWidget);
     expect(find.text('Read WhatsApp from an iPhone'), findsOneWidget);
   });
 

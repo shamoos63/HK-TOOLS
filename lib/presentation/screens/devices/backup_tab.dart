@@ -9,6 +9,7 @@ import '../../../core/theme/hud_theme.dart';
 import '../../../core/utils/byte_format.dart';
 import '../../../core/utils/plist.dart';
 import '../../../domain/entities/ios_device.dart';
+import '../../../services/device/contacts_service.dart';
 import '../../providers/device_providers.dart';
 import '../../widgets/hud_widgets.dart';
 import 'device_widgets.dart';
@@ -47,12 +48,12 @@ class _BackupEntry {
 
 final _backupsProvider = FutureProvider.autoDispose
     .family<List<_BackupEntry>, String>((ref, root) async {
-      final dir = Directory(root);
-      if (!dir.existsSync()) return const [];
+      if (!Directory(root).existsSync()) return const [];
       final out = <_BackupEntry>[];
-      for (final d in dir.listSync().whereType<Directory>()) {
+      // `<root>/<udid>` (older backups) and `<root>/<name date>/<udid>`.
+      for (final s in BackupContacts.findBackups(root, origin: '', depth: 2)) {
+        final d = Directory(s.directory);
         final info = File(p.join(d.path, 'Info.plist'));
-        if (!info.existsSync()) continue;
         try {
           out.add(_BackupEntry(d, parsePlistDict(await info.readAsString())));
         } on Object {
@@ -95,7 +96,7 @@ class BackupTab extends ConsumerWidget {
         full
             ? trf('Full backup of {0}', [device.displayName])
             : trf('Backup of {0}', [device.displayName]),
-        () => svc.startBackup(device, root, full: full),
+        () => svc.startBackup(device, namedBackupDir(root, device), full: full),
       );
       ref.invalidate(_backupsProvider(root));
     }
@@ -288,7 +289,16 @@ class BackupTab extends ConsumerWidget {
     await runDeviceAction(
       context,
       trf('Backup of {0} deleted', [b.name]),
-      () => b.dir.delete(recursive: true),
+      () async {
+        await b.dir.delete(recursive: true);
+        // Remove the "<device name> <date>" folder around it too.
+        final parent = b.dir.parent;
+        if (p.normalize(parent.path) != p.normalize(root) &&
+            parent.existsSync() &&
+            parent.listSync().isEmpty) {
+          await parent.delete();
+        }
+      },
     );
     ref.invalidate(_backupsProvider(root));
   }

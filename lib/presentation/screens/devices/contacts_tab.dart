@@ -123,8 +123,9 @@ class _ContactsTabState extends ConsumerState<ContactsTab> {
         .read(backupJobProvider.notifier)
         .run(
           trf('Backup of {0}', [widget.device.displayName]),
-          () =>
-              ref.read(deviceServiceProvider).startBackup(widget.device, root),
+          () => ref
+              .read(deviceServiceProvider)
+              .startBackup(widget.device, namedBackupDir(root, widget.device)),
         );
     if (!mounted) return;
     setState(() => _source = null);

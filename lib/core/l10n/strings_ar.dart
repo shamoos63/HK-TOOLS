@@ -1119,4 +1119,33 @@ const arabicStrings = <String, String>{
       'جارٍ نسخ النسخة الاحتياطية وفك تشفيرها…',
   'Copy': 'نسخ',
   'WhatsApp Business': 'واتساب للأعمال',
+  'No iPhone backup in that folder. Pick the folder that contains Info.plist and Manifest.db, or the folder above it.': 'لا توجد نسخة احتياطية لـ iPhone في هذا المجلد. اختر المجلد الذي يحتوي على Info.plist وManifest.db، أو المجلد الأعلى منه.',
+  'No iPhone connected. You can still open an existing backup.':
+      'لا يوجد iPhone متصل. لا يزال بإمكانك فتح نسخة احتياطية موجودة.',
+  'Choose backup folder…': 'اختيار مجلد النسخة الاحتياطية…',
+  'Look for backups again': 'البحث عن النسخ الاحتياطية مرة أخرى',
+  'Backups with WhatsApp on this computer (HK Tools, Finder / iTunes, 3uTools):': 'النسخ الاحتياطية التي تحتوي على واتساب على هذا الكمبيوتر (HK Tools وFinder / iTunes و3uTools):',
+  'No backup with WhatsApp found. Press "Back up now", or "Choose backup folder…" for an iTunes or 3uTools backup saved somewhere else. Backups must not be encrypted.': 'لم يتم العثور على نسخة احتياطية تحتوي على واتساب. اضغط "نسخ احتياطي الآن"، أو "اختيار مجلد النسخة الاحتياطية…" لنسخة iTunes أو 3uTools محفوظة في مكان آخر. يجب ألا تكون النسخ مشفّرة.',
+  'Encrypted: can\'t be read': 'مشفّرة: لا يمكن قراءتها',
+  'Restore {0} to {1}?': 'استعادة {0} إلى {1}؟',
+  '{0} on {1} is replaced with the chats, media and account from this backup. Only {0} changes: photos, apps and settings stay as they are. The iPhone restarts at the end. Keep it unlocked and connected until it does.': 'سيتم استبدال {0} على {1} بالمحادثات والوسائط والحساب من هذه النسخة الاحتياطية. يتغير {0} فقط: تبقى الصور والتطبيقات والإعدادات كما هي. يُعاد تشغيل iPhone في النهاية. أبقِه مفتوحاً ومتصلاً حتى يتم ذلك.',
+  'Restore WhatsApp from this backup to an iPhone':
+      'استعادة واتساب من هذه النسخة الاحتياطية إلى iPhone',
+  'Install WhatsApp on the iPhone first (don\'t register it yet) and turn off Find My. The chats, photos, voice notes and the account come from the backup.': 'ثبّت واتساب على iPhone أولاً (دون تسجيله بعد) وأوقف "تحديد الموقع". تأتي المحادثات والصور والرسائل الصوتية والحساب من النسخة الاحتياطية.',
+  'Connect and trust the iPhone to restore to.':
+      'وصّل iPhone الذي تريد الاستعادة إليه ووثّق به.',
+  'Restoring…': 'جارٍ الاستعادة…',
+  'Restore to {0}': 'استعادة إلى {0}',
+  '1/2 Taking {0} out of the backup…':
+      '1/2 جارٍ استخراج {0} من النسخة الاحتياطية…',
+  '2/2 Restoring to the iPhone…': '2/2 جارٍ الاستعادة إلى iPhone…',
+  'Done. When the iPhone has restarted, open {0} and confirm your phone number. The chats from the backup are there.': 'تم. بعد إعادة تشغيل iPhone، افتح {0} وأكّد رقم هاتفك. ستجد المحادثات من النسخة الاحتياطية هناك.',
+  'The restore failed.': 'فشلت الاستعادة.',
+  'This backup is encrypted, so WhatsApp can\'t be taken from it. Pick an unencrypted backup, or turn off encryption in the app that made it and back up again.': 'هذه النسخة الاحتياطية مشفّرة، لذا لا يمكن أخذ واتساب منها. اختر نسخة غير مشفّرة، أو أوقف التشفير في التطبيق الذي أنشأها وأعد النسخ الاحتياطي.',
+  '{0} is not installed on the iPhone. Install it from the App Store first, then try again. Don\'t register it yet: the restored chats bring the account with them.': '{0} غير مثبّت على iPhone. ثبّته من App Store أولاً ثم حاول مرة أخرى. لا تسجّله بعد: المحادثات المستعادة تجلب الحساب معها.',
+  'Pick a backup above (HK Tools, Finder / iTunes or 3uTools), or back up the connected iPhone. Its WhatsApp chats are read here, and can be restored to an iPhone. Nothing is uploaded.': 'اختر نسخة احتياطية في الأعلى (HK Tools أو Finder / iTunes أو 3uTools)، أو انسخ iPhone المتصل احتياطياً. تُقرأ محادثات واتساب هنا ويمكن استعادتها إلى iPhone. لا يُرفع أي شيء.',
+  'iPhone / iTunes / 3uTools': 'iPhone / iTunes / 3uTools',
+  'Folder': 'مجلد',
+  'HK Tools': 'HK Tools',
+  'Finder / iTunes': 'Finder / iTunes',
 };

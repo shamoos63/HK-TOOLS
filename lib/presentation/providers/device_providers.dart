@@ -43,6 +43,21 @@ String deviceFolder(String root, ConnectedDevice d, String kind) => p.join(
   (d.info?.name ?? d.displayName).replaceAll(RegExp(r'[\\/:*?"<>|]'), '_'),
 );
 
+/// Folder for a new backup of [d]: `<root>/<device name> <yyyy-MM-dd HH.mm>`.
+/// `idevicebackup2` puts the backup itself in a `<udid>` folder inside it,
+/// so every backup is kept and is easy to recognise in Finder / Explorer.
+String namedBackupDir(String root, ConnectedDevice d, [DateTime? at]) {
+  final t = at ?? DateTime.now();
+  String two(int v) => v.toString().padLeft(2, '0');
+  final name = (d.info?.name ?? d.displayName)
+      .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+      .trim();
+  return p.join(
+    root,
+    '$name ${t.year}-${two(t.month)}-${two(t.day)} ${two(t.hour)}.${two(t.minute)}',
+  );
+}
+
 // ───────────────────────── discovery ─────────────────────────
 
 class DevicesState {

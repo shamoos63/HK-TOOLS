@@ -7,15 +7,14 @@ import 'package:path/path.dart' as p;
 
 import '../../../core/theme/hud_theme.dart';
 import '../../../core/utils/byte_format.dart';
-import '../../../domain/entities/ios_device.dart';
 import '../../../services/whatsapp/wa_export.dart';
 import '../../../services/whatsapp/wa_parser.dart';
-import '../../providers/device_providers.dart';
 import '../../providers/whatsapp_android_providers.dart';
 import '../../providers/whatsapp_providers.dart';
 import '../../widgets/hud_widgets.dart';
 import '../devices/device_widgets.dart';
 import 'whatsapp_android_source.dart';
+import 'whatsapp_backup_source.dart';
 import '../../../core/l10n/l10n.dart';
 
 /// Decrypts a WhatsApp `.crypt15` backup with its key, reads the chats, and
@@ -56,7 +55,10 @@ class WhatsAppScreen extends ConsumerWidget {
                 constraints: const BoxConstraints(maxHeight: 380),
                 child: const SingleChildScrollView(child: WaAndroidSource()),
               ),
-              WaSourceMode.iphone => const _IphoneSource(),
+              WaSourceMode.iphone => ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 440),
+                child: const SingleChildScrollView(child: WaBackupSource()),
+              ),
             },
             const SizedBox(height: 14),
             Expanded(
@@ -83,7 +85,7 @@ class WhatsAppScreen extends ConsumerWidget {
                             'Connect the phone with USB debugging on. We read the 64-digit backup key from its screen, copy the encrypted backup over USB and decrypt it here. Nothing is uploaded.',
                           ),
                           WaSourceMode.iphone => tr(
-                            'Back up the connected iPhone, then read its WhatsApp chats straight from the backup. Nothing is uploaded.',
+                            'Pick a backup above (HK Tools, Finder / iTunes or 3uTools), or back up the connected iPhone. Its WhatsApp chats are read here, and can be restored to an iPhone. Nothing is uploaded.',
                           ),
                         },
                       ),
@@ -143,7 +145,7 @@ class _SourceToggle extends ConsumerWidget {
               ref.read(waSourceModeProvider.notifier).set(WaSourceMode.android),
         ),
         HudChipTab(
-          label: tr('From iPhone'),
+          label: tr('iPhone / iTunes / 3uTools'),
           active: mode == WaSourceMode.iphone,
           onTap: () =>
               ref.read(waSourceModeProvider.notifier).set(WaSourceMode.iphone),
@@ -154,125 +156,6 @@ class _SourceToggle extends ConsumerWidget {
 }
 
 /// Reads WhatsApp straight from a connected iPhone's local backup.
-class _IphoneSource extends ConsumerWidget {
-  const _IphoneSource();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final devices = ref
-        .watch(devicesProvider)
-        .devices
-        .where((d) => d.mode.isBooted && d.pairState == PairState.paired)
-        .toList();
-    if (devices.isEmpty) {
-      return GlassPanel(
-        padding: EdgeInsets.fromLTRB(16, 14, 16, 14),
-        child: Row(
-          children: [
-            Icon(
-              Icons.phone_iphone_rounded,
-              size: 18,
-              color: HudColors.textMuted,
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                tr('Connect and trust an iPhone to read its WhatsApp chats.'),
-                style: TextStyle(color: HudColors.textMuted, fontSize: 13),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    // Default to the first usable device.
-    final device = devices.first;
-    final job = ref.watch(backupJobProvider);
-    final backingUp = job.status == JobStatus.running;
-    final sources = ref.watch(waBackupSourcesProvider(device.udid!));
-    final selected = ref.watch(waBackupDirProvider);
-
-    Future<void> backup() async {
-      final root = p.join(ref.read(deviceDataDirProvider), 'Backups');
-      await ref
-          .read(backupJobProvider.notifier)
-          .run(
-            trf('Backup of {0}', [device.displayName]),
-            () => ref.read(deviceServiceProvider).startBackup(device, root),
-          );
-      ref.invalidate(waBackupSourcesProvider(device.udid!));
-    }
-
-    return GlassPanel(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.phone_iphone_rounded, size: 18, color: HudColors.cyan),
-              const SizedBox(width: 8),
-              Expanded(
-                child: HudLabel(
-                  device.displayName,
-                  color: HudColors.textPrimary,
-                ),
-              ),
-              NeonButton(
-                label: backingUp ? tr('Backing up…') : tr('Back up now'),
-                icon: Icons.backup_rounded,
-                variant: NeonVariant.ghost,
-                compact: true,
-                onPressed: backingUp ? null : backup,
-              ),
-            ],
-          ),
-          if (backingUp) ...[
-            const SizedBox(height: 8),
-            GlowProgressBar(value: job.progress ?? 0, height: 4),
-          ],
-          const SizedBox(height: 10),
-          sources.when(
-            loading: () => const LinearProgressIndicator(minHeight: 2),
-            error: (e, _) => DeviceError(e),
-            data: (list) => list.isEmpty
-                ? Text(
-                    tr(
-                      'No backup with WhatsApp yet. Press "Back up now" (make sure backup encryption is off, in Devices → Backup).',
-                    ),
-                    style: TextStyle(
-                      color: HudColors.textMuted,
-                      fontSize: 12.5,
-                    ),
-                  )
-                : Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final s in list)
-                        HudChipTab(
-                          label: s.date == null
-                              ? s.origin
-                              : '${s.origin} · ${_fmtDate(s.date!)}',
-                          active: s.directory == selected,
-                          onTap: () => ref
-                              .read(waBackupDirProvider.notifier)
-                              .set(s.directory),
-                        ),
-                    ],
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static String _fmtDate(DateTime d) {
-    String two(int v) => v.toString().padLeft(2, '0');
-    return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
-  }
-}
-
 class _InputCard extends ConsumerWidget {
   const _InputCard();
 
