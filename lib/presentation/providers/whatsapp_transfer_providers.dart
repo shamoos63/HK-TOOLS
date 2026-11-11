@@ -101,9 +101,12 @@ class WaTransferController extends Notifier<WaTransferState> {
     //    exact schema of the installed version) and file records.
     state = WaTransferState(phase: WaTransferPhase.backingUp, udid: udid);
     final job = ref.read(backupJobProvider.notifier);
+    // Same "<device name> <date>" folder as backups made from Devices, so it
+    // also shows up (and can be restored) in the backup lists.
+    final backupRoot = namedBackupDir(_backupRoot, device);
     await job.run(
       trf('Backup of {0}', [device.displayName]),
-      () => service.startBackup(device, _backupRoot),
+      () => service.startBackup(device, backupRoot),
     );
     final backed = ref.read(backupJobProvider);
     if (backed.status != JobStatus.succeeded) {
@@ -117,7 +120,7 @@ class WaTransferController extends Notifier<WaTransferState> {
     // 2. Build a WhatsApp-only backup from it and merge the chats into that.
     //    The full backup stays untouched.
     state = WaTransferState(phase: WaTransferPhase.writing, udid: udid);
-    final backupDir = p.join(_backupRoot, udid);
+    final backupDir = p.join(backupRoot, udid);
     final restoreRoot = p.join(ref.read(waWorkDirProvider), 'restore');
     final WaIosImportResult result;
     try {
