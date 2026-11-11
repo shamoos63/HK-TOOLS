@@ -1148,4 +1148,34 @@ const arabicStrings = <String, String>{
   'Folder': 'مجلد',
   'HK Tools': 'HK Tools',
   'Finder / iTunes': 'Finder / iTunes',
+  'Only crypt15 backups can be written.':
+      'لا يمكن كتابة سوى نسخ crypt15 الاحتياطية.',
+  'WhatsApp on the phone could not be reset: {0}':
+      'تعذّرت إعادة تعيين واتساب على الهاتف: {0}',
+  'Copying to the phone': 'النسخ إلى الهاتف',
+  'Copying media': 'نسخ الوسائط',
+  'Photo': 'صورة',
+  'Video': 'فيديو',
+  'Audio': 'صوت',
+  'Voice message': 'رسالة صوتية',
+  'Document': 'مستند',
+  'Contact': 'جهة اتصال',
+  'Location': 'موقع',
+  'The Android backup is not a current WhatsApp database; update WhatsApp on the phone and make a new backup.': 'النسخة الاحتياطية من Android ليست قاعدة بيانات واتساب حديثة؛ حدّث واتساب على الهاتف وأنشئ نسخة احتياطية جديدة.',
+  'Prepare the Android phone first: in "From Android", read the 64-digit key and copy the phone\'s backup.': 'جهّز هاتف Android أولاً: في "من Android" اقرأ المفتاح المكوّن من 64 رقماً وانسخ النسخة الاحتياطية للهاتف.',
+  'The chats and media from this iPhone backup are added to the Android backup made a moment ago, and it is put back on {1}. {0} on the phone is then reset and asks to restore: enter the 64-digit key. Messages that arrived on the phone after that backup are not kept.': 'تُضاف المحادثات والوسائط من نسخة iPhone هذه إلى نسخة Android الاحتياطية التي أُنشئت قبل قليل، ثم تُعاد إلى {1}. بعدها يُعاد تعيين {0} على الهاتف ويطلب الاستعادة: أدخل المفتاح المكوّن من 64 رقماً. الرسائل التي وصلت إلى الهاتف بعد تلك النسخة لن تُحفظ.',
+  'Restore WhatsApp from this backup to an Android phone':
+      'استعادة واتساب من هذه النسخة الاحتياطية إلى هاتف Android',
+  'First prepare the Android phone: install WhatsApp and register it with your number, then in "From Android" read the 64-digit key and copy the phone\'s backup (photos from the Android phone don\'t need to be copied). Then come back here.': 'جهّز هاتف Android أولاً: ثبّت واتساب وسجّله برقمك، ثم في "من Android" اقرأ المفتاح المكوّن من 64 رقماً وانسخ النسخة الاحتياطية للهاتف (لا حاجة لنسخ صور هاتف Android). ثم عد إلى هنا.',
+  'Prepare the Android phone': 'تجهيز هاتف Android',
+  'Ready: {0} on {1}, with its 64-digit key.':
+      'جاهز: {0} على {1}، مع مفتاحه المكوّن من 64 رقماً.',
+  'This backup has no {0}. Pick the other app in "From Android".': 'هذه النسخة الاحتياطية لا تحتوي على {0}. اختر التطبيق الآخر في "من Android".',
+  '1/3 Adding the iPhone chats to the Android backup…':
+      '1/3 إضافة محادثات iPhone إلى نسخة Android الاحتياطية…',
+  '2/3 Copying the backup and media to the phone…':
+      '2/3 نسخ النسخة الاحتياطية والوسائط إلى الهاتف…',
+  '3/3 Resetting {0} on the phone…': '3/3 إعادة تعيين {0} على الهاتف…',
+  'Done: {0} messages and {1} photos, videos and voice notes added. {2} is open on the phone: agree, confirm your number, tap Restore when it finds the backup, and enter this key:': 'تم: أُضيفت {0} رسالة و{1} صورة وفيديو ورسالة صوتية. {2} مفتوح على الهاتف: وافق، وأكّد رقمك، واضغط استعادة عندما يجد النسخة الاحتياطية، وأدخل هذا المفتاح:',
+  'Copy key': 'نسخ المفتاح',
 };

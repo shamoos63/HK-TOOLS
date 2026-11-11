@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart' as crypto;
@@ -103,10 +105,36 @@ Uint8List decryptWhatsAppDb(Uint8List encrypted, WaBackupKey key) {
   if (body.length < 32) {
     throw WaCryptException(tr('Backup body is too small.'));
   }
-  // body = ciphertext ++ tag[16] ++ md5-checksum[16]. GCM verifies the tag, so
-  // the trailing md5 (absent in multi-file backups) is not required.
-  final cipherAndTag = Uint8List.sublistView(body, 0, body.length - 16);
-  final plain = _aesGcmDecrypt(key.aesKey, iv, cipherAndTag);
+  // body = ciphertext ++ tag[16] ++ md5[16], the md5 covering everything
+  // before it. Multi-file backups have no md5: then the last 16 bytes are the
+  // tag (wa-crypt-tools tells them apart the same way).
+  final md5Ok =
+      _md5(Uint8List.sublistView(encrypted, 0, encrypted.length - 16))
+          .toString() ==
+      _hexOf(Uint8List.sublistView(encrypted, encrypted.length - 16));
+  final cipherAndTag = md5Ok
+      ? Uint8List.sublistView(body, 0, body.length - 16)
+      : body;
+  Uint8List plain;
+  try {
+    plain = _aesGcmDecrypt(key.aesKey, iv, cipherAndTag);
+  } on WaCryptException {
+    if (md5Ok) rethrow;
+    // A checksum written some other way: try with it stripped.
+    plain = _aesGcmDecrypt(
+      key.aesKey,
+      iv,
+      Uint8List.sublistView(body, 0, body.length - 16),
+    );
+  }
+  // WhatsApp zlib-compresses the database before encrypting it.
+  if (plain.isNotEmpty && plain[0] == 0x78) {
+    try {
+      plain = Uint8List.fromList(zlib.decode(plain));
+    } on FormatException {
+      // Not compressed after all; checked below.
+    }
+  }
 
   if (plain.length < 16 ||
       String.fromCharCodes(plain.sublist(0, 15)) != 'SQLite format 3') {
@@ -117,6 +145,78 @@ Uint8List decryptWhatsAppDb(Uint8List encrypted, WaBackupKey key) {
     );
   }
   return plain;
+}
+
+/// Encrypts a plain `msgstore.db` ([plainDb]) into a `.crypt15` that
+/// WhatsApp on Android restores with the same 64-digit key.
+///
+/// [template] is a `.crypt15` made by WhatsApp on the target phone: its
+/// header (app version, backup version, phone-number suffix) is kept as is,
+/// with a fresh IV. Layout as in wa-crypt-tools: varint(header size) ++ header
+/// ++ AES-GCM(zlib(db)) ++ tag[16] ++ md5(everything before)[16].
+Uint8List encryptWhatsAppDb(
+  Uint8List plainDb,
+  WaBackupKey key,
+  Uint8List template, {
+  Uint8List? iv,
+}) {
+  if (key.version != WaCryptVersion.crypt15) {
+    throw WaCryptException(tr('Only crypt15 backups can be written.'));
+  }
+  final (prefixLen, headerStart) = _readVarint(template, 0);
+  final prefixEnd = headerStart + prefixLen;
+  if (prefixLen <= 0 || prefixEnd > template.length) {
+    throw WaCryptException(tr('Backup header is invalid or truncated.'));
+  }
+  final header = Uint8List.fromList(template.sublist(0, prefixEnd));
+  final oldIv = _ivFromPrefix(
+    Uint8List.sublistView(header, headerStart, prefixEnd),
+  );
+  if (oldIv == null) {
+    throw WaCryptException(
+      tr('No IV in the backup header; unsupported format.'),
+    );
+  }
+  final newIv = iv ?? _randomBytes(16);
+  final at = _indexOf(header, oldIv, headerStart);
+  if (at < 0 || newIv.length != 16) {
+    throw WaCryptException(tr('Backup header is invalid or truncated.'));
+  }
+  header.setRange(at, at + 16, newIv);
+
+  final compressed = Uint8List.fromList(ZLibCodec(level: 6).encode(plainDb));
+  final gcm = GCMBlockCipher(AESEngine())
+    ..init(
+      true,
+      AEADParameters(KeyParameter(key.aesKey), 128, newIv, Uint8List(0)),
+    );
+  final cipherAndTag = gcm.process(compressed);
+  final out = BytesBuilder(copy: false)
+    ..add(header)
+    ..add(cipherAndTag);
+  final body = out.toBytes();
+  return Uint8List.fromList([...body, ..._md5(body).bytes]);
+}
+
+crypto.Digest _md5(List<int> data) => crypto.md5.convert(data);
+
+String _hexOf(List<int> b) =>
+    b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
+
+Uint8List _randomBytes(int n) {
+  final r = Random.secure();
+  return Uint8List.fromList(List.generate(n, (_) => r.nextInt(256)));
+}
+
+int _indexOf(Uint8List hay, Uint8List needle, int from) {
+  outer:
+  for (var i = from; i + needle.length <= hay.length; i++) {
+    for (var j = 0; j < needle.length; j++) {
+      if (hay[i + j] != needle[j]) continue outer;
+    }
+    return i;
+  }
+  return -1;
 }
 
 // ───────────────────────── internals ─────────────────────────

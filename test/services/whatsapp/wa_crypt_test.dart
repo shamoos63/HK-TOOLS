@@ -49,9 +49,8 @@ Uint8List _encryptCrypt15(Uint8List db, Uint8List aesKey, Uint8List iv) {
     ..add([prefix.length]) // varint (prefix < 128 bytes here)
     ..add(prefix)
     ..add(cipherAndTag);
-  final md5 = crypto.md5
-      .convert(body.toBytes().sublist(prefix.length + 1))
-      .bytes;
+  // md5 of everything before it (wa-crypt-tools / WhatsApp layout).
+  final md5 = crypto.md5.convert(body.toBytes()).bytes;
   body.add(md5);
   return body.toBytes();
 }
@@ -130,5 +129,35 @@ void main() {
       () => decryptWhatsAppDb(encrypted, wrong),
       throwsA(isA<WaCryptException>()),
     );
+  });
+
+  test('encrypt → decrypt round-trips, compressed, keeping the header', () {
+    final db = File('test/fixtures/wa_msgstore.db').readAsBytesSync();
+    final key = WaBackupKey.fromKeyFile(
+      Uint8List.fromList(List.generate(32, (i) => (i * 5) & 0xff)),
+    );
+    final template = _encryptCrypt15(db, key.aesKey, Uint8List(16));
+    final out = encryptWhatsAppDb(db, key, template);
+    // Same header length; only the IV differs.
+    expect(out.sublist(0, 3), template.sublist(0, 3));
+    expect(out.sublist(5, 21), isNot(template.sublist(5, 21)));
+    // md5 trailer covers everything before it.
+    expect(
+      out.sublist(out.length - 16),
+      crypto.md5.convert(out.sublist(0, out.length - 16)).bytes,
+    );
+    expect(decryptWhatsAppDb(out, key), db);
+    // The payload is zlib: smaller than the plain database plus overhead.
+    expect(out.length, lessThan(db.length + 64));
+  });
+
+  test('decrypts a zlib-compressed backup made by WhatsApp', () {
+    final db = File('test/fixtures/wa_msgstore.db').readAsBytesSync();
+    final key = WaBackupKey.fromKeyFile(
+      Uint8List.fromList(List.generate(32, (i) => i)),
+    );
+    final packed = Uint8List.fromList(ZLibCodec(level: 1).encode(db));
+    final enc = _encryptCrypt15(packed, key.aesKey, Uint8List(16));
+    expect(decryptWhatsAppDb(enc, key), db);
   });
 }

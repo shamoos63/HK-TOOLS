@@ -91,7 +91,8 @@ abstract final class WaIosReader {
       final pathCol = pick(['ZMEDIALOCALPATH', 'ZMEDIAURL']);
       final sizeCol = pick(['ZFILESIZE']);
       final titleCol = pick(['ZTITLE', 'ZVCARDNAME']);
-      final cols = ['Z_PK', ?pathCol, ?sizeCol, ?titleCol];
+      final durCol = pick(['ZMOVIEDURATION']);
+      final cols = ['Z_PK', ?pathCol, ?sizeCol, ?titleCol, ?durCol];
       for (final row in db.select(
         'SELECT ${cols.join(', ')} FROM ZWAMEDIAITEM',
       )) {
@@ -102,6 +103,7 @@ abstract final class WaIosReader {
           name:
               (titleCol == null ? null : row[titleCol] as String?) ??
               path?.split('/').last,
+          duration: durCol == null ? null : (row[durCol] as num?)?.round(),
         );
       }
     }
@@ -110,6 +112,7 @@ abstract final class WaIosReader {
     final hasMediaItem = msgCols.contains('ZMEDIAITEM');
     final textCol = msgCols.contains('ZTEXT') ? 'ZTEXT' : null;
     final typeMsgCol = msgCols.contains('ZMESSAGETYPE') ? 'ZMESSAGETYPE' : null;
+    final stanzaCol = msgCols.contains('ZSTANZAID') ? 'ZSTANZAID' : null;
 
     final select = [
       'ZCHATSESSION',
@@ -117,6 +120,7 @@ abstract final class WaIosReader {
       'ZMESSAGEDATE',
       ?textCol,
       ?typeMsgCol,
+      ?stanzaCol,
       if (hasGroupMember) 'ZGROUPMEMBER',
       if (hasMediaItem) 'ZMEDIAITEM',
     ].join(', ');
@@ -146,6 +150,8 @@ abstract final class WaIosReader {
           mediaName: m?.name,
           mediaPath: m?.path,
           mediaSize: m?.size,
+          keyId: stanzaCol == null ? null : row[stanzaCol] as String?,
+          mediaDurationSec: m?.duration,
         ),
       );
       counts[jid] = (counts[jid] ?? 0) + 1;
@@ -207,9 +213,10 @@ abstract final class WaIosReader {
 }
 
 class _IosMedia {
-  const _IosMedia({this.path, this.size, this.name});
+  const _IosMedia({this.path, this.size, this.name, this.duration});
 
   final String? path;
   final int? size;
   final String? name;
+  final int? duration;
 }

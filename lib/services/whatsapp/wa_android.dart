@@ -612,4 +612,66 @@ class WaAndroidClient {
     }
     return local;
   }
+
+  // ───────────────────────── restore to the phone ─────────────────────────
+
+  /// Clears WhatsApp's data on the phone (`pm clear`), so on next launch it
+  /// asks for the phone number and offers to restore the local backup.
+  Future<void> clearApp(String serial, WaFlavor flavor) async {
+    final out = await _shell(serial, 'pm clear ${flavor.package} 2>&1');
+    if (!out.contains('Success')) {
+      throw AdbException(
+        trf('WhatsApp on the phone could not be reset: {0}', [out.trim()]),
+      );
+    }
+  }
+
+  /// Copies [local] (a file, or a folder whose contents are merged into
+  /// [remoteDir]) onto the phone.
+  Future<void> push(
+    String serial,
+    String local,
+    String remote, {
+    String what = 'Copying to the phone',
+  }) async {
+    final parent = FileSystemEntity.isDirectorySync(local)
+        ? remote
+        : p.posix.dirname(remote);
+    await _shell(serial, "mkdir -p '$parent'");
+    ToolResult? last;
+    for (var i = 0; i < 3; i++) {
+      if (i > 0) {
+        await _run([
+          '-s',
+          serial,
+          'wait-for-device',
+        ], timeout: const Duration(minutes: 2));
+      }
+      // A folder is pushed as "<dir>/." so its contents merge into [remote].
+      final src = FileSystemEntity.isDirectorySync(local)
+          ? p.join(local, '.')
+          : local;
+      last = await _run([
+        '-s',
+        serial,
+        'push',
+        src,
+        remote,
+      ], timeout: const Duration(hours: 3));
+      if (last.ok) return;
+    }
+    throw AdbException(trf('{0} failed: {1}', [tr(what), last!.errorMessage]));
+  }
+
+  /// Starts WhatsApp on the phone.
+  Future<void> launch(String serial, WaFlavor flavor) => _shell(
+    serial,
+    'monkey -p ${flavor.package} -c android.intent.category.LAUNCHER 1',
+  );
+
+  /// `true` if [remotePath] exists on the phone.
+  Future<bool> exists(String serial, String remotePath) async => (await _shell(
+    serial,
+    "[ -e '$remotePath' ] && echo yes",
+  )).contains('yes');
 }
