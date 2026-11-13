@@ -13,6 +13,11 @@ import '../../core/l10n/l10n.dart';
 bool get useCustomWindowChrome =>
     debugForceWindowChrome ?? (!kIsWeb && Platform.isWindows);
 
+/// macOS: the content runs under the (transparent) title bar so the blur
+/// covers the whole window; this much room is left for the window buttons.
+double get macTitleBarInset =>
+    !kIsWeb && Platform.isMacOS && debugForceWindowChrome == null ? 28 : 0;
+
 /// Tests can force the custom chrome on any platform.
 @visibleForTesting
 bool? debugForceWindowChrome;

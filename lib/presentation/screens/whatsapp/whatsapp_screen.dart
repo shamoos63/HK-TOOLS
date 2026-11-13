@@ -15,17 +15,30 @@ import '../../widgets/hud_widgets.dart';
 import '../devices/device_widgets.dart';
 import 'whatsapp_android_source.dart';
 import 'whatsapp_backup_source.dart';
+import 'whatsapp_media.dart';
+import '../../../services/whatsapp/wa_media_index.dart';
+import '../../providers/whatsapp_backup_providers.dart';
+import '../../providers/core_providers.dart';
 import '../../../core/l10n/l10n.dart';
 
 /// Decrypts a WhatsApp `.crypt15` backup with its key, reads the chats, and
 /// exports them to a readable HTML page or CSV. Entirely local — nothing is
 /// uploaded. (Inspired by wa-transfer; this is the archive/read half, which
 /// works reliably, not the fragile "inject into an iPhone backup" half.)
-class WhatsAppScreen extends ConsumerWidget {
+class WhatsAppScreen extends ConsumerStatefulWidget {
   const WhatsAppScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WhatsAppScreen> createState() => _WhatsAppScreenState();
+}
+
+/// Two pages: "Move & restore" (where the chats come from, and the step
+/// cards that move them) and "Preview" (browse the chats and media).
+class _WhatsAppScreenState extends ConsumerState<WhatsAppScreen> {
+  int _page = 0;
+
+  @override
+  Widget build(BuildContext context) {
     final mode = ref.watch(waSourceModeProvider);
     final inputs = ref.watch(waInputsProvider);
     final archive = ref.watch(waArchiveProvider);
@@ -35,89 +48,107 @@ class WhatsAppScreen extends ConsumerWidget {
         inputs.ready && ref.watch(waAndroidProvider).step == WaAndroidStep.done,
       WaSourceMode.iphone => ref.watch(waBackupDirProvider) != null,
     };
+    final ready = hasSource && archive.value != null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 6, 24, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: SegmentedButton<int>(
+              showSelectedIcon: false,
+              segments: [
+                ButtonSegment(
+                  value: 0,
+                  icon: const Icon(Icons.swap_horiz_rounded),
+                  label: Text(tr('Move & restore')),
+                ),
+                ButtonSegment(
+                  value: 1,
+                  icon: Badge(
+                    isLabelVisible: ready && _page != 1,
+                    smallSize: 8,
+                    backgroundColor: HudColors.success,
+                    child: const Icon(Icons.forum_rounded),
+                  ),
+                  label: Text(
+                    ready
+                        ? trf('Preview ({0} chats)', [archive.value!.chatCount])
+                        : tr('Preview'),
+                  ),
+                ),
+              ],
+              selected: {_page},
+              onSelectionChanged: (v) => setState(() => _page = v.first),
+            ),
+          ),
+          const SizedBox(height: 14),
           const _SourceToggle(),
           const SizedBox(height: 10),
-          // The Android guide is tall: it scrolls on its own, and takes the
-          // whole page until the chats are ready.
-          if (mode == WaSourceMode.android && !hasSource)
-            const Expanded(
-              child: SingleChildScrollView(child: WaAndroidSource()),
-            )
-          else ...[
-            switch (mode) {
-              WaSourceMode.file => const _InputCard(),
-              WaSourceMode.android => ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 380),
-                child: const SingleChildScrollView(child: WaAndroidSource()),
-              ),
-              WaSourceMode.iphone => ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 440),
-                child: const SingleChildScrollView(child: WaBackupSource()),
-              ),
-            },
-            const SizedBox(height: 14),
-            Expanded(
-              child: !hasSource
-                  ? GlassPanel(
-                      child: EmptyState(
-                        icon: Icons.chat_rounded,
-                        title: switch (mode) {
-                          WaSourceMode.file => tr(
-                            'Decrypt and read WhatsApp chats',
-                          ),
-                          WaSourceMode.android => tr(
-                            'Get WhatsApp straight from an Android phone',
-                          ),
-                          WaSourceMode.iphone => tr(
-                            'Read WhatsApp from an iPhone',
-                          ),
-                        },
-                        message: switch (mode) {
-                          WaSourceMode.file => tr(
-                            'Pick a WhatsApp backup (msgstore.db.crypt15) and its key file. Everything is processed on this computer — nothing is uploaded. You can then browse the chats and export them to HTML or CSV.',
-                          ),
-                          WaSourceMode.android => tr(
-                            'Connect the phone with USB debugging on. We read the 64-digit backup key from its screen, copy the encrypted backup over USB and decrypt it here. Nothing is uploaded.',
-                          ),
-                          WaSourceMode.iphone => tr(
-                            'Pick a backup above (HK Tools, Finder / iTunes or 3uTools), or back up the connected iPhone. Its WhatsApp chats are read here, and can be restored to an iPhone. Nothing is uploaded.',
-                          ),
-                        },
-                      ),
-                    )
-                  : archive.when(
-                      loading: () => GlassPanel(
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircularProgressIndicator(),
-                              SizedBox(height: 12),
-                              Text(
-                                tr('Decrypting and reading chats…'),
-                                style: TextStyle(color: HudColors.textMuted),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      error: (e, _) => GlassPanel(
-                        child: DeviceError(
-                          e,
-                          onRetry: () => ref.invalidate(waArchiveProvider),
-                        ),
-                      ),
-                      data: (a) => a == null
-                          ? const SizedBox.shrink()
-                          : _Browser(archive: a),
+          Expanded(
+            child: _page == 0
+                ? switch (mode) {
+                    WaSourceMode.file => const SingleChildScrollView(
+                      child: _InputCard(),
                     ),
-            ),
-          ],
+                    WaSourceMode.android => const SingleChildScrollView(
+                      child: WaAndroidSource(),
+                    ),
+                    WaSourceMode.iphone => const SingleChildScrollView(
+                      child: WaBackupSource(),
+                    ),
+                  }
+                : !hasSource
+                ? GlassPanel(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          EmptyState(
+                            icon: Icons.forum_rounded,
+                            title: tr('Nothing to preview yet'),
+                            message: tr(
+                              'Pick where the chats come from in "Move & restore": an iPhone, iTunes or 3uTools backup, an Android phone, or a backup file. The chats and media then show here.',
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          NeonButton(
+                            label: tr('Go to Move & restore'),
+                            icon: Icons.swap_horiz_rounded,
+                            onPressed: () => setState(() => _page = 0),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : archive.when(
+                    loading: () => GlassPanel(
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 12),
+                            Text(
+                              tr('Decrypting and reading chats…'),
+                              style: TextStyle(color: HudColors.textMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    error: (e, _) => GlassPanel(
+                      child: DeviceError(
+                        e,
+                        onRetry: () => ref.invalidate(waArchiveProvider),
+                      ),
+                    ),
+                    data: (a) => a == null
+                        ? const SizedBox.shrink()
+                        : _Browser(archive: a),
+                  ),
+          ),
         ],
       ),
     );
@@ -325,6 +356,11 @@ class _FileRow extends StatelessWidget {
   );
 }
 
+/// Chats or the media grid.
+final _mediaViewProvider = NotifierProvider<ValueController<bool>, bool>(
+  () => ValueController(false),
+);
+
 class _Browser extends ConsumerWidget {
   const _Browser({required this.archive});
 
@@ -336,46 +372,56 @@ class _Browser extends ConsumerWidget {
     final chat =
         archive.chats.where((c) => c.jid == selected).firstOrNull ??
         archive.chats.firstOrNull;
+    final index = ref.watch(waMediaIndexProvider).value;
+    final hasMedia = index != null && !index.isEmpty;
+    final mediaView = hasMedia && ref.watch(_mediaViewProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SummaryBar(archive: archive),
+        _SummaryBar(archive: archive, hasMedia: hasMedia),
         const SizedBox(height: 10),
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                width: 300,
-                child: _ChatList(archive: archive, selected: chat?.jid),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: chat == null
-                    ? GlassPanel(
-                        child: EmptyState(
-                          icon: Icons.chat_outlined,
-                          title: tr('No chats'),
+        if (mediaView)
+          Expanded(
+            child: WaMediaGallery(archive: archive, index: index),
+          )
+        else
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: 300,
+                  child: _ChatList(archive: archive, selected: chat?.jid),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: chat == null
+                      ? GlassPanel(
+                          child: EmptyState(
+                            icon: Icons.chat_outlined,
+                            title: tr('No chats'),
+                          ),
+                        )
+                      : _Thread(
+                          key: ValueKey(chat.jid),
+                          chat: chat,
+                          messages: archive.messagesFor(chat.jid),
+                          media: hasMedia ? index : null,
                         ),
-                      )
-                    : _Thread(
-                        key: ValueKey(chat.jid),
-                        chat: chat,
-                        messages: archive.messagesFor(chat.jid),
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
 }
 
 class _SummaryBar extends ConsumerWidget {
-  const _SummaryBar({required this.archive});
+  const _SummaryBar({required this.archive, this.hasMedia = false});
 
   final WaArchive archive;
+  final bool hasMedia;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => GlassPanel(
@@ -392,6 +438,28 @@ class _SummaryBar extends ConsumerWidget {
             style: HudTheme.telemetry(size: 12.5, color: HudColors.textPrimary),
           ),
         ),
+        if (hasMedia) ...[
+          SegmentedButton<bool>(
+            segments: [
+              ButtonSegment(
+                value: false,
+                icon: const Icon(Icons.chat_rounded, size: 16),
+                label: Text(tr('Chats')),
+              ),
+              ButtonSegment(
+                value: true,
+                icon: const Icon(Icons.photo_library_rounded, size: 16),
+                label: Text(tr('Media')),
+              ),
+            ],
+            selected: {ref.watch(_mediaViewProvider)},
+            showSelectedIcon: false,
+            style: const ButtonStyle(visualDensity: VisualDensity.compact),
+            onSelectionChanged: (v) =>
+                ref.read(_mediaViewProvider.notifier).set(v.first),
+          ),
+          const SizedBox(width: 12),
+        ],
         NeonButton(
           label: tr('Export HTML'),
           icon: Icons.html_rounded,
@@ -541,10 +609,18 @@ class _ChatListState extends ConsumerState<_ChatList> {
 }
 
 class _Thread extends StatelessWidget {
-  const _Thread({super.key, required this.chat, required this.messages});
+  const _Thread({
+    super.key,
+    required this.chat,
+    required this.messages,
+    this.media,
+  });
 
   final WaChat chat;
   final List<WaMessage> messages;
+
+  /// Where the photos / videos are; `null` = show labels only.
+  final WaMediaIndex? media;
 
   String _day(int ms) {
     final d = DateTime.fromMillisecondsSinceEpoch(ms);
@@ -627,6 +703,7 @@ class _Thread extends StatelessWidget {
                             message: m,
                             isGroup: chat.isGroup,
                             time: _time(m.timestampMs),
+                            media: media,
                           ),
                         ],
                       );
@@ -644,11 +721,13 @@ class _Bubble extends StatelessWidget {
     required this.message,
     required this.isGroup,
     required this.time,
+    this.media,
   });
 
   final WaMessage message;
   final bool isGroup;
   final String time;
+  final WaMediaIndex? media;
 
   String get _body {
     final t = message.text;
@@ -684,7 +763,9 @@ class _Bubble extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(9),
           color: me
-              ? const Color(0xFF075E54).withValues(alpha: 0.55)
+              ? (HudColors.isLight
+                    ? const Color(0xFFD9FDD3)
+                    : const Color(0xFF075E54).withValues(alpha: 0.55))
               : HudColors.overlay.withValues(alpha: 0.05),
         ),
         child: Column(
@@ -702,7 +783,20 @@ class _Bubble extends StatelessWidget {
                   ),
                 ),
               ),
-            Text(_body, style: const TextStyle(fontSize: 13.5, height: 1.3)),
+            if (media != null &&
+                waHasPicture(message.kind) &&
+                media!.thumbnail(message.mediaPath) != null) ...[
+              WaMediaThumb(message: message, index: media!),
+              if (message.text != null && message.text!.trim().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    message.text!,
+                    style: const TextStyle(fontSize: 13.5, height: 1.3),
+                  ),
+                ),
+            ] else
+              Text(_body, style: const TextStyle(fontSize: 13.5, height: 1.3)),
             Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Text(

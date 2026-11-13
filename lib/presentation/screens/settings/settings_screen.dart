@@ -712,6 +712,14 @@ class _DeviceToolsSection extends ConsumerWidget {
               : () =>
                     update((x) => x.copyWith(deviceDataDirectory: () => null)),
         ),
+        _SwitchRow(
+          label: tr('Activate after flashing'),
+          help: tr(
+            'When a firmware restore finishes, wait for the device to start and activate it with Apple, like Finder does. Needs pymobiledevice3.',
+          ),
+          value: s.autoActivate,
+          onChanged: (v) => update((x) => x.copyWith(autoActivate: v)),
+        ),
         _RowShell(
           label: missing.isEmpty
               ? trf('All {0} tools found', [found.length])

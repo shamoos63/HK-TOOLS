@@ -88,12 +88,19 @@ class _HudHeaderState extends ConsumerState<HudHeader> {
     final showBadges = _showBadgesIn.contains(section);
     if (!showSearch && !showBadges) {
       // Just room for the window buttons / drag area.
-      return SizedBox(height: useCustomWindowChrome ? 38 : 14);
+      return SizedBox(
+        height: useCustomWindowChrome ? 38 : 14 + macTitleBarInset,
+      );
     }
 
     return Padding(
       // Leave room for the window buttons in the top-right corner (Windows).
-      padding: EdgeInsets.fromLTRB(24, useCustomWindowChrome ? 38 : 18, 24, 10),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        useCustomWindowChrome ? 38 : 12 + macTitleBarInset,
+        24,
+        10,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

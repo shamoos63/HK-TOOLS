@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -196,6 +197,82 @@ Uint8List encryptWhatsAppDb(
     ..add(cipherAndTag);
   final body = out.toBytes();
   return Uint8List.fromList([...body, ..._md5(body).bytes]);
+}
+
+/// The 64-digit key of all zeros. The commercial transfer tools encrypt the
+/// backup they build with it, and tell the user to type 64 zeros when
+/// WhatsApp asks for the key during restore.
+const waZeroKeyHex =
+    '0000000000000000000000000000000000000000000000000000000000000000';
+
+/// A crypt15 header (`BackupPrefix`) built from scratch, as wa-crypt-tools
+/// does without a reference backup:
+///  1 key_type_deprecated = 1, 3 e2ee_key_data = { 1 iv },
+///  4 backup_metadata = { 1 app_version, 3 jid_suffix (last two digits of
+///  the phone number), 4 backup_version = 1, feature flags 5–37 and 39 },
+///  6 key_type_new = 3 (64-digit key).
+Uint8List buildCrypt15Header({
+  required String appVersion,
+  required String jidSuffix,
+  required Uint8List iv,
+}) {
+  List<int> varint(int v) {
+    final out = <int>[];
+    while (v >= 0x80) {
+      out.add((v & 0x7f) | 0x80);
+      v >>= 7;
+    }
+    out.add(v);
+    return out;
+  }
+
+  List<int> tag(int field, int wire) => varint((field << 3) | wire);
+  List<int> bytesField(int field, List<int> data) => [
+    ...tag(field, 2),
+    ...varint(data.length),
+    ...data,
+  ];
+  List<int> intField(int field, int v) => [...tag(field, 0), ...varint(v)];
+
+  final meta = <int>[
+    ...bytesField(1, utf8.encode(appVersion)),
+    ...bytesField(3, utf8.encode(jidSuffix)),
+    ...intField(4, 1),
+    for (var f = 5; f <= 37; f++) ...intField(f, 1),
+    ...intField(39, 1),
+  ];
+  final prefix = <int>[
+    ...intField(1, 1),
+    ...bytesField(3, bytesField(1, iv)),
+    ...bytesField(4, meta),
+    ...intField(6, 3),
+  ];
+  return Uint8List.fromList([...varint(prefix.length), ...prefix]);
+}
+
+/// Encrypts [plainDb] into a new `.crypt15` with a header from
+/// [buildCrypt15Header] (no template backup needed).
+Uint8List encryptWhatsAppDbFresh(
+  Uint8List plainDb,
+  WaBackupKey key, {
+  required String appVersion,
+  required String jidSuffix,
+  Uint8List? iv,
+}) {
+  final useIv = iv ?? _randomBytes(16);
+  final header = buildCrypt15Header(
+    appVersion: appVersion,
+    jidSuffix: jidSuffix,
+    iv: useIv,
+  );
+  // An encrypted file needs a body; reuse the template path with this
+  // header (it keeps the header and the IV we just put in it).
+  return encryptWhatsAppDb(
+    plainDb,
+    key,
+    Uint8List.fromList([...header, ...List.filled(32, 0)]),
+    iv: useIv,
+  );
 }
 
 crypto.Digest _md5(List<int> data) => crypto.md5.convert(data);

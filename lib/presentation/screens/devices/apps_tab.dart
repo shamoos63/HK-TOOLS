@@ -199,7 +199,7 @@ class _AppsTabState extends ConsumerState<AppsTab> {
   void _documents(InstalledApp app) => showDialog<void>(
     context: context,
     builder: (_) => Dialog(
-      backgroundColor: HudColors.background,
+      backgroundColor: HudColors.surfaceRaised,
       insetPadding: const EdgeInsets.all(40),
       child: SizedBox(
         width: 900,

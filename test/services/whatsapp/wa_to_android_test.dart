@@ -152,9 +152,11 @@ void main() {
 
     final pkg = WaAndroidRestore.prepare(
       iphoneBackupDir: backup.path,
-      androidCrypt15Path: crypt.path,
-      keyHex: keyHex,
       outDir: p.join(tmp.path, 'out'),
+      appVersion: '2.26.41.7',
+      jidSuffix: '03',
+      baseCrypt15Path: crypt.path,
+      baseKeyHex: keyHex,
     );
     expect(pkg.result.mediaFiles, hasLength(1));
     expect(pkg.result.mediaMissing, 0);
@@ -164,9 +166,13 @@ void main() {
     expect(staged.readAsBytesSync(), photo.readAsBytesSync());
 
     // The new backup opens with the same key and holds both phones' chats.
+    // Encrypted with the all-zeros key the user types on the phone.
+    final zero = WaBackupKey.fromKeyFile(
+      Uint8List.fromList(waZeroKeyHex.codeUnits),
+    );
     final plain = decryptWhatsAppDb(
       File(pkg.crypt15Path).readAsBytesSync(),
-      key,
+      zero,
     );
     final check = File(p.join(tmp.path, 'check.db'))..writeAsBytesSync(plain);
     final merged = WaParser.parseFile(check.path);
@@ -176,4 +182,81 @@ void main() {
     final img = merged.messages.singleWhere((m) => m.kind == WaMediaKind.image);
     expect(img.mediaPath, rel);
   });
+
+  test('without the phone backup: built-in WhatsApp template + zero key', () {
+    final backup = _iphoneBackup(tmp);
+    final pkg = WaAndroidRestore.prepare(
+      iphoneBackupDir: backup,
+      outDir: p.join(tmp.path, 'out'),
+      appVersion: '2.26.41.7',
+      jidSuffix: '42',
+    );
+    final enc = File(pkg.crypt15Path).readAsBytesSync();
+    final zero = WaBackupKey.fromKeyFile(
+      Uint8List.fromList(waZeroKeyHex.codeUnits),
+    );
+    final plain = decryptWhatsAppDb(enc, zero);
+    final check = File(p.join(tmp.path, 'c.db'))..writeAsBytesSync(plain);
+    final a = WaParser.parseFile(check.path);
+    expect(a.messages.map((m) => m.text), contains('Hello from Alice'));
+    expect(a.chats.any((c) => c.name == 'Family Group'), isTrue);
+    // The template is WhatsApp's full schema, not just the core tables.
+    final db = sqlite3.open(check.path, mode: OpenMode.readOnly);
+    final tables =
+        db
+                .select(
+                  "SELECT COUNT(*) c FROM sqlite_master WHERE type='table'",
+                )
+                .first['c']
+            as int;
+    expect(tables, greaterThan(250));
+    db.close();
+    // Header carries the app version and the number's last two digits.
+    final header = String.fromCharCodes(enc.sublist(0, 160));
+    expect(header, contains('2.26.41.7'));
+    expect(header, contains('42'));
+  });
+
+  test('crypt15 header from scratch matches the wa-crypt-tools layout', () {
+    final h = buildCrypt15Header(
+      appVersion: '2.24.12.79',
+      jidSuffix: '03',
+      iv: Uint8List(16),
+    );
+    // Same size as the header Dr.Fone wrote for 2.24.12.79 (130 bytes),
+    // give or take the feature list.
+    expect(h.length, inInclusiveRange(120, 142));
+    final start = h[0] & 0x80 == 0 ? 1 : 2; // varint length prefix
+    expect(h[start], 0x08); // field 1 varint
+    expect(h[start + 1], 0x01); // key_type_deprecated = 1
+    expect(h.sublist(h.length - 2), [0x30, 0x03]); // key_type_new = 3
+  });
+}
+
+/// A minimal iPhone backup with the WhatsApp fixture database.
+String _iphoneBackup(Directory tmp) {
+  final backup = Directory(p.join(tmp.path, 'UDID2'))..createSync();
+  File(p.join(backup.path, 'Info.plist')).writeAsStringSync(
+    '<?xml version="1.0"?><plist version="1.0"><dict></dict></plist>',
+  );
+  File(p.join(backup.path, 'Manifest.plist')).writeAsStringSync(
+    '<?xml version="1.0"?><plist version="1.0"><dict>'
+    '<key>IsEncrypted</key><false/></dict></plist>',
+  );
+  const dbId = '7c7fba66680ef796b916b067077cc246adacf01d';
+  File(
+    'test/fixtures/wa_chatstorage.sqlite',
+  ).copySync((File(p.join(backup.path, '7c', dbId))..parent.createSync()).path);
+  final m = sqlite3.open(p.join(backup.path, 'Manifest.db'));
+  m.execute(
+    'CREATE TABLE Files(fileID TEXT PRIMARY KEY, domain TEXT, '
+    'relativePath TEXT, flags INTEGER, file BLOB)',
+  );
+  m.execute('INSERT INTO Files VALUES(?,?,?,1,NULL)', [
+    dbId,
+    'AppDomainGroup-group.net.whatsapp.WhatsApp.shared',
+    'ChatStorage.sqlite',
+  ]);
+  m.close();
+  return backup.path;
 }

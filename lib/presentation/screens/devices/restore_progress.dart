@@ -223,6 +223,11 @@ class _ProgressCard extends ConsumerWidget {
               ),
             ],
           ),
+          if (state.status == JobStatus.succeeded &&
+              state.activation != AutoActivation.none) ...[
+            const SizedBox(height: 12),
+            _ActivationLine(state: state),
+          ],
           const SizedBox(height: 16),
           if (state.running)
             Row(
@@ -554,4 +559,62 @@ class _LogView extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// Automatic activation after a successful restore.
+class _ActivationLine extends StatelessWidget {
+  const _ActivationLine({required this.state});
+
+  final RestoreState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final (Widget icon, String text, Color color) = switch (state.activation) {
+      AutoActivation.waiting => (
+        const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        tr('Waiting for the device to start, then activating it…'),
+        HudColors.textPrimary,
+      ),
+      AutoActivation.activating => (
+        const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        tr('Activating with Apple…'),
+        HudColors.textPrimary,
+      ),
+      AutoActivation.done => (
+        Icon(Icons.verified_rounded, size: 18, color: HudColors.success),
+        tr('Activated. The device is ready to set up.'),
+        HudColors.success,
+      ),
+      AutoActivation.failed || AutoActivation.skipped => (
+        Icon(Icons.info_outline_rounded, size: 18, color: HudColors.warning),
+        state.activationNote ?? tr('The device was not activated.'),
+        HudColors.warning,
+      ),
+      AutoActivation.none => (const SizedBox.shrink(), '', HudColors.textMuted),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          icon,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(text, style: TextStyle(fontSize: 13, color: color)),
+          ),
+        ],
+      ),
+    );
+  }
 }

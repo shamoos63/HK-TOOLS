@@ -147,6 +147,11 @@ abstract final class DeviceParsers {
       totalData: m.integer('TotalDataCapacity') ?? total,
       availableData: available,
       totalSystem: m.integer('TotalSystemCapacity'),
+      apps: m.integer('MobileApplicationUsage'),
+      photos: switch ((m.integer('PhotoUsage'), m.integer('CameraUsage'))) {
+        (null, null) => null,
+        (final a, final b) => (a ?? 0) + (b ?? 0),
+      },
     );
   }
 

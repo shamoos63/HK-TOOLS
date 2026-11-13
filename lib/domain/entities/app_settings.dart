@@ -27,6 +27,7 @@ class AppSettings {
     this.galleryPrivacyMode = false,
     this.reducedEffects,
     this.appearance = AppearanceMode.system,
+    this.autoActivate = true,
     this.language = AppLanguage.system,
   });
 
@@ -76,6 +77,9 @@ class AppSettings {
   /// effects as bright, washed-out areas.
   final bool? reducedEffects;
 
+  /// Activate the device with Apple once a firmware restore has finished.
+  final bool autoActivate;
+
   /// Light or dark; `system` follows the computer's setting.
   final AppearanceMode appearance;
 
@@ -109,6 +113,7 @@ class AppSettings {
     bool? galleryPrivacyMode,
     bool? Function()? reducedEffects,
     AppearanceMode? appearance,
+    bool? autoActivate,
     AppLanguage? language,
   }) => AppSettings(
     targetDirectory: targetDirectory ?? this.targetDirectory,
@@ -137,6 +142,7 @@ class AppSettings {
         ? reducedEffects()
         : this.reducedEffects,
     appearance: appearance ?? this.appearance,
+    autoActivate: autoActivate ?? this.autoActivate,
     language: language ?? this.language,
   );
 
@@ -165,6 +171,7 @@ class AppSettings {
     checkToolsAtStartup: json['checkToolsAtStartup'] as bool? ?? true,
     galleryPrivacyMode: json['galleryPrivacyMode'] as bool? ?? false,
     reducedEffects: json['reducedEffects'] as bool?,
+    autoActivate: json['autoActivate'] as bool? ?? true,
     appearance:
         AppearanceMode.values
             .where((m) => m.name == json['appearance'])
@@ -196,6 +203,7 @@ class AppSettings {
     'galleryPrivacyMode': galleryPrivacyMode,
     'reducedEffects': reducedEffects,
     'appearance': appearance.name,
+    'autoActivate': autoActivate,
     'language': language.name,
   };
 }

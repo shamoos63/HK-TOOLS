@@ -43,7 +43,7 @@ class Sidebar extends ConsumerWidget {
           end: BorderSide(color: HudColors.glassBorder),
         ),
       ),
-      padding: const EdgeInsets.fromLTRB(12, 20, 12, 16),
+      padding: EdgeInsets.fromLTRB(12, 14 + macTitleBarInset, 12, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

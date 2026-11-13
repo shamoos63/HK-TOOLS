@@ -1,6 +1,5 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
@@ -10,13 +9,12 @@ import '../../../domain/entities/ios_device.dart';
 import '../../../services/device/contacts_service.dart';
 import '../../providers/device_providers.dart';
 
-import '../../../services/whatsapp/wa_android.dart';
-import '../../providers/whatsapp_android_providers.dart';
-import '../../providers/whatsapp_android_restore_providers.dart';
 import '../../providers/whatsapp_backup_providers.dart';
+import '../../providers/whatsapp_ios_backup.dart';
 import '../../providers/whatsapp_providers.dart';
 import '../../widgets/hud_widgets.dart';
 import '../devices/device_widgets.dart';
+import 'whatsapp_android_restore_steps.dart';
 
 /// WhatsApp from an iPhone backup: the connected iPhone (back it up now), or
 /// any existing backup made by HK Tools, Finder / iTunes or 3uTools. The
@@ -37,17 +35,26 @@ class WaBackupSource extends ConsumerWidget {
     final backups = ref.watch(waAllBackupsProvider);
     final selected = ref.watch(waBackupDirProvider);
 
-    Future<void> backup() async {
+    /// Only WhatsApp (or WhatsApp Business) is saved, like Dr.Fone does.
+    Future<void> backup(bool business) async {
       if (device == null) return;
-      final root = p.join(ref.read(deviceDataDirProvider), 'Backups');
-      await ref
-          .read(backupJobProvider.notifier)
-          .run(
-            trf('Backup of {0}', [device.displayName]),
-            () => ref
-                .read(deviceServiceProvider)
-                .startBackup(device, namedBackupDir(root, device)),
-          );
+      try {
+        final dir = await backUpWhatsAppOnly(
+          job: ref.read(backupJobProvider.notifier),
+          jobState: () => ref.read(backupJobProvider),
+          tools: ref.read(deviceToolchainProvider),
+          service: ref.read(deviceServiceProvider),
+          device: device,
+          backupsRoot: p.join(ref.read(deviceDataDirProvider), 'Backups'),
+          business: business,
+        );
+        ref.read(waBackupDirProvider.notifier).set(dir);
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.maybeOf(context)
+              ?.showSnackBar(SnackBar(content: Text('$e')));
+        }
+      }
       ref.invalidate(waAllBackupsProvider);
     }
 
@@ -111,12 +118,22 @@ class WaBackupSource extends ConsumerWidget {
               ),
               if (device != null)
                 NeonButton(
-                  label: backingUp ? tr('Backing up…') : tr('Back up now'),
+                  label: backingUp ? tr('Backing up…') : tr('Back up WhatsApp'),
                   icon: Icons.backup_rounded,
                   variant: NeonVariant.ghost,
                   compact: true,
-                  onPressed: backingUp ? null : backup,
+                  onPressed: backingUp ? null : () => backup(false),
                 ),
+              if (device != null && !backingUp) ...[
+                const SizedBox(width: 8),
+                NeonButton(
+                  label: tr('Back up WhatsApp Business'),
+                  icon: Icons.business_center_rounded,
+                  variant: NeonVariant.ghost,
+                  compact: true,
+                  onPressed: () => backup(true),
+                ),
+              ],
               const SizedBox(width: 8),
               NeonButton(
                 label: tr('Choose backup folder…'),
@@ -150,7 +167,7 @@ class WaBackupSource extends ConsumerWidget {
             data: (list) => list.isEmpty
                 ? Text(
                     tr(
-                      'No backup with WhatsApp found. Press "Back up now", or "Choose backup folder…" for an iTunes or 3uTools backup saved somewhere else. Backups must not be encrypted.',
+                      'No backup with WhatsApp found. Press "Back up WhatsApp" (only WhatsApp is saved, but the iPhone still sends everything, so it can take a while), or "Choose backup folder…" for an iTunes or 3uTools backup saved somewhere else. Backups must not be encrypted.',
                     ),
                     style: TextStyle(color: HudColors.textMuted, fontSize: 13),
                   )
@@ -178,7 +195,7 @@ class WaBackupSource extends ConsumerWidget {
             const SizedBox(height: 14),
             _RestoreCard(backupDir: selected, iphones: iphones),
             const SizedBox(height: 12),
-            _AndroidRestoreCard(backupDir: selected),
+            WaAndroidRestoreSteps(backupDir: selected),
           ],
         ],
       ),
@@ -406,19 +423,32 @@ class _RestoreCardState extends ConsumerState<_RestoreCard> {
             ),
           if (restore.running) ...[
             const SizedBox(height: 10),
-            Text(
-              restore.phase == WaRestorePhase.preparing
-                  ? trf('1/2 Taking {0} out of the backup…', [app])
-                  : tr('2/2 Restoring to the iPhone…'),
-              style: const TextStyle(fontSize: 12.5),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    restore.phase == WaRestorePhase.preparing
+                        ? trf('1/2 Taking {0} out of the backup…', [app])
+                        : tr('2/2 Restoring to the iPhone…'),
+                    style: const TextStyle(fontSize: 12.5),
+                  ),
+                ),
+                if (restore.phase == WaRestorePhase.restoring)
+                  Text(
+                    job.progress == null
+                        ? tr('Starting…')
+                        : '${(job.progress! * 100).floor()}%',
+                    style: HudTheme.telemetry(
+                      size: 14,
+                      color: HudColors.textPrimary,
+                    ).copyWith(fontWeight: FontWeight.w700),
+                  ),
+              ],
             ),
             const SizedBox(height: 6),
-            GlowProgressBar(
-              value: restore.phase == WaRestorePhase.restoring
-                  ? (job.progress ?? 0)
-                  : 0.05,
-              height: 4,
-            ),
+            restore.phase == WaRestorePhase.restoring
+                ? GlowProgressBar(value: job.progress ?? 0, height: 6)
+                : const LinearProgressIndicator(minHeight: 4),
           ],
           if (restore.phase == WaRestorePhase.done) ...[
             const SizedBox(height: 10),
@@ -431,192 +461,6 @@ class _RestoreCardState extends ConsumerState<_RestoreCard> {
             ),
           ],
           if (restore.phase == WaRestorePhase.failed) ...[
-            const SizedBox(height: 10),
-            SelectableText(
-              restore.error ?? tr('The restore failed.'),
-              style: TextStyle(fontSize: 12.5, color: HudColors.danger),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// iPhone backup → Android phone. The Android side (key + the phone's own
-/// backup) is prepared in the "From Android" steps; this card merges the
-/// iPhone chats into it and puts it back on the phone.
-class _AndroidRestoreCard extends ConsumerWidget {
-  const _AndroidRestoreCard({required this.backupDir});
-
-  final String backupDir;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final flow = ref.watch(waAndroidProvider);
-    final restore = ref.watch(waAndroidRestoreProvider);
-    final flavors =
-        ref.watch(waBackupFlavorsProvider(backupDir)).value ?? const <bool>[];
-    final devices = ref.watch(androidDevicesProvider).value ?? const [];
-    final phone = devices.where((d) => d.serial == flow.serial).firstOrNull;
-    final business = flow.flavor == WaFlavor.business;
-    final app = business ? tr('WhatsApp Business') : tr('WhatsApp');
-    final ready =
-        flow.step == WaAndroidStep.done &&
-        flow.keyHex != null &&
-        phone?.state == AndroidDeviceState.ready;
-    final hasFlavor = flavors.isEmpty || flavors.contains(business);
-
-    Future<void> start() async {
-      final ok = await confirmDialog(
-        context,
-        title: trf('Restore {0} to {1}?', [app, phone!.displayName]),
-        message: trf(
-          'The chats and media from this iPhone backup are added to the Android backup made a moment ago, and it is put back on {1}. {0} on the phone is then reset and asks to restore: enter the 64-digit key. Messages that arrived on the phone after that backup are not kept.',
-          [app, phone.displayName],
-        ),
-        confirmLabel: tr('Restore'),
-      );
-      if (!ok) return;
-      await ref
-          .read(waAndroidRestoreProvider.notifier)
-          .restore(iphoneBackupDir: backupDir);
-    }
-
-    final muted = TextStyle(
-      fontSize: 12.5,
-      height: 1.4,
-      color: HudColors.textMuted,
-    );
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: HudColors.overlay.withValues(alpha: 0.04),
-        border: Border.all(color: HudColors.glassBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.android_rounded, size: 20, color: HudColors.success),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  tr('Restore WhatsApp from this backup to an Android phone'),
-                  style: const TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (!ready) ...[
-            Text(
-              tr(
-                'First prepare the Android phone: install WhatsApp and register it with your number, then in "From Android" read the 64-digit key and copy the phone\'s backup (photos from the Android phone don\'t need to be copied). Then come back here.',
-              ),
-              style: muted,
-            ),
-            const SizedBox(height: 10),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: NeonButton(
-                label: tr('Prepare the Android phone'),
-                icon: Icons.android_rounded,
-                variant: NeonVariant.ghost,
-                onPressed: () => ref
-                    .read(waSourceModeProvider.notifier)
-                    .set(WaSourceMode.android),
-              ),
-            ),
-          ] else ...[
-            Text(
-              trf('Ready: {0} on {1}, with its 64-digit key.', [
-                app,
-                phone!.displayName,
-              ]),
-              style: muted,
-            ),
-            if (!hasFlavor) ...[
-              const SizedBox(height: 6),
-              Text(
-                trf(
-                  'This backup has no {0}. Pick the other app in "From Android".',
-                  [app],
-                ),
-                style: TextStyle(fontSize: 12.5, color: HudColors.warning),
-              ),
-            ],
-            const SizedBox(height: 10),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: NeonButton(
-                label: restore.running
-                    ? tr('Restoring…')
-                    : trf('Restore to {0}', [phone.displayName]),
-                icon: Icons.restore_rounded,
-                onPressed: restore.running || !hasFlavor ? null : start,
-              ),
-            ),
-          ],
-          if (restore.running) ...[
-            const SizedBox(height: 10),
-            Text(switch (restore.phase) {
-              WaAndroidRestorePhase.preparing => tr(
-                '1/3 Adding the iPhone chats to the Android backup…',
-              ),
-              WaAndroidRestorePhase.pushing => tr(
-                '2/3 Copying the backup and media to the phone…',
-              ),
-              _ => trf('3/3 Resetting {0} on the phone…', [app]),
-            }, style: const TextStyle(fontSize: 12.5)),
-            const SizedBox(height: 6),
-            const LinearProgressIndicator(minHeight: 3),
-          ],
-          if (restore.phase == WaAndroidRestorePhase.done) ...[
-            const SizedBox(height: 10),
-            Text(
-              trf(
-                'Done: {0} messages and {1} photos, videos and voice notes added. {2} is open on the phone: agree, confirm your number, tap Restore when it finds the backup, and enter this key:',
-                [
-                  restore.result?.messagesAdded ?? 0,
-                  restore.result?.mediaFiles.length ?? 0,
-                  app,
-                ],
-              ),
-              style: TextStyle(fontSize: 12.5, color: HudColors.success),
-            ),
-            if (restore.keyHex != null) ...[
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: SelectableText(
-                      [
-                        for (var i = 0; i < restore.keyHex!.length; i += 4)
-                          restore.keyHex!.substring(i, i + 4),
-                      ].join(' '),
-                      style: HudTheme.telemetry(
-                        size: 12,
-                        color: HudColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                  HudIconButton(
-                    icon: Icons.copy_rounded,
-                    tooltip: tr('Copy key'),
-                    onPressed: () =>
-                        Clipboard.setData(ClipboardData(text: restore.keyHex!)),
-                  ),
-                ],
-              ),
-            ],
-          ],
-          if (restore.phase == WaAndroidRestorePhase.failed) ...[
             const SizedBox(height: 10),
             SelectableText(
               restore.error ?? tr('The restore failed.'),

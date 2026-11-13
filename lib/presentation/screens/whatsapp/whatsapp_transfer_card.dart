@@ -143,15 +143,30 @@ class _Progress extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Text(
-              state.phase == WaTransferPhase.backingUp
-                  ? tr('1/3 Backing up the iPhone…')
-                  : trf('3/3 Restoring to the iPhone ({0} messages)…', [
-                      r?.messagesAdded ?? 0,
-                    ]),
+            Row(
+              children: [
+                Expanded(
+                  child: _Text(
+                    state.phase == WaTransferPhase.backingUp
+                        ? tr('1/3 Backing up the iPhone…')
+                        : trf('3/3 Restoring to the iPhone ({0} messages)…', [
+                            r?.messagesAdded ?? 0,
+                          ]),
+                  ),
+                ),
+                Text(
+                  job.progress == null
+                      ? tr('Starting…')
+                      : '${(job.progress! * 100).floor()}%',
+                  style: HudTheme.telemetry(
+                    size: 14,
+                    color: HudColors.textPrimary,
+                  ).copyWith(fontWeight: FontWeight.w700),
+                ),
+              ],
             ),
             const SizedBox(height: 6),
-            GlowProgressBar(value: job.progress ?? 0, height: 4),
+            GlowProgressBar(value: job.progress ?? 0, height: 6),
             if (job.log.isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(

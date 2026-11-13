@@ -674,4 +674,81 @@ class WaAndroidClient {
     serial,
     "[ -e '$remotePath' ] && echo yes",
   )).contains('yes');
+
+  /// Installed version of [flavor] (`versionName`), or `null` if missing.
+  Future<String?> installedVersion(String serial, WaFlavor flavor) async {
+    final out = await _shell(
+      serial,
+      'dumpsys package ${flavor.package} | grep versionName',
+    );
+    final m = RegExp(r'versionName=(\S+)').firstMatch(out);
+    return m?.group(1);
+  }
+
+  /// Copies the installed app's APK(s) (base + splits) to [localDir], so the
+  /// same version can be installed again after uninstalling. Returns the
+  /// local paths.
+  Future<List<String>> saveApks(
+    String serial,
+    WaFlavor flavor,
+    String localDir,
+  ) async {
+    final out = await _shell(serial, 'pm path ${flavor.package}');
+    final remote = [
+      for (final l in const LineSplitter().convert(out))
+        if (l.trim().startsWith('package:')) l.trim().substring(8),
+    ];
+    if (remote.isEmpty) {
+      throw AdbException(
+        trf('{0} is not installed on the phone.', [flavor.label]),
+      );
+    }
+    final dir = Directory(localDir);
+    if (dir.existsSync()) dir.deleteSync(recursive: true);
+    dir.createSync(recursive: true);
+    final local = <String>[];
+    for (var i = 0; i < remote.length; i++) {
+      final to = p.join(localDir, '$i-${p.posix.basename(remote[i])}');
+      await _pullWithRetry(serial, remote[i], to, tr('Saving WhatsApp'));
+      local.add(to);
+    }
+    return local;
+  }
+
+  /// Uninstalls [flavor] (its data and its `Android/media` folder go too).
+  Future<void> uninstall(String serial, WaFlavor flavor) async {
+    final r = await _run([
+      '-s',
+      serial,
+      'uninstall',
+      flavor.package,
+    ], timeout: const Duration(minutes: 2));
+    if (!'${r.stdout}${r.stderr}'.contains('Success')) {
+      throw AdbException(
+        trf('WhatsApp could not be removed from the phone: {0}', [
+          r.errorMessage,
+        ]),
+      );
+    }
+  }
+
+  /// Installs [apks] (one base APK, or base + splits) with all runtime
+  /// permissions granted.
+  Future<void> install(String serial, List<String> apks) async {
+    final r = await _run([
+      '-s',
+      serial,
+      if (apks.length == 1) 'install' else 'install-multiple',
+      '-r',
+      '-g',
+      ...apks,
+    ], timeout: const Duration(minutes: 5));
+    if (!'${r.stdout}${r.stderr}'.contains('Success')) {
+      throw AdbException(
+        trf('WhatsApp could not be installed on the phone: {0}', [
+          r.errorMessage,
+        ]),
+      );
+    }
+  }
 }

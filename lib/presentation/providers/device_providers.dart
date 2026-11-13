@@ -356,6 +356,14 @@ class BackupJobController extends Notifier<JobState> {
   Process? _process;
   static final _percent = RegExp(r'(\d{1,3}(?:\.\d+)?)%');
 
+  /// idevicebackup2 prints a bar per file (`[===] 40% (1.2 MB/3 MB)`) and,
+  /// between files, the overall progress: `[===] 45% Finished`. Only the
+  /// overall lines move the job's bar, so it doesn't restart for every file.
+  static final _overall = RegExp(
+    r'(\d{1,3}(?:\.\d+)?)%\s*Finished',
+    caseSensitive: false,
+  );
+
   @override
   JobState build() {
     ref.onDispose(() => _process?.kill());
@@ -371,6 +379,7 @@ class BackupJobController extends Notifier<JobState> {
       final proc = await start();
       _process = proc;
       final log = <String>[];
+      var sawOverall = false;
       await for (final line in DeviceToolchain.lines(proc)) {
         final l = line.trim();
         if (l.isEmpty) continue;
@@ -381,12 +390,22 @@ class BackupJobController extends Notifier<JobState> {
           log.add(l);
         }
         if (log.length > 400) log.removeAt(0);
+        final overall = _overall.firstMatch(l);
+        if (overall != null) sawOverall = true;
+        // Tools without overall lines: use any percentage, but never let
+        // the bar go backwards.
+        final pct = overall ?? (sawOverall ? null : m);
+        final value = pct == null
+            ? null
+            : (double.parse(pct.group(1)!) / 100).clamp(0.0, 1.0);
         state = JobState(
           status: JobStatus.running,
           title: title,
-          progress: m == null
+          progress: value == null
               ? state.progress
-              : (double.parse(m.group(1)!) / 100).clamp(0.0, 1.0),
+              : (overall != null
+                    ? value
+                    : (value > (state.progress ?? 0) ? value : state.progress)),
           log: List.of(log),
         );
       }
@@ -415,6 +434,9 @@ final backupJobProvider = NotifierProvider<BackupJobController, JobState>(
 
 // ───────────────────────── firmware restore ─────────────────────────
 
+/// Activating the device after a successful restore.
+enum AutoActivation { none, waiting, activating, done, failed, skipped }
+
 class RestoreState {
   const RestoreState({
     this.status = JobStatus.idle,
@@ -428,9 +450,17 @@ class RestoreState {
     this.overall = 0,
     this.activity,
     this.aborted = false,
+    this.activation = AutoActivation.none,
+    this.activationNote,
   });
 
   final JobStatus status;
+
+  /// Activation that runs once the restored device has booted.
+  final AutoActivation activation;
+
+  /// Why activation was skipped or failed.
+  final String? activationNote;
   final RestoreRequest? request;
   final RestoreStep? step;
 
@@ -467,6 +497,8 @@ class RestoreState {
     double? overall,
     String? activity,
     bool? aborted,
+    AutoActivation? activation,
+    String? Function()? activationNote,
   }) => RestoreState(
     status: status ?? this.status,
     request: request,
@@ -479,6 +511,10 @@ class RestoreState {
     overall: overall ?? this.overall,
     activity: activity ?? this.activity,
     aborted: aborted ?? this.aborted,
+    activation: activation ?? this.activation,
+    activationNote: activationNote != null
+        ? activationNote()
+        : this.activationNote,
   );
 }
 
@@ -553,7 +589,90 @@ class RestoreController extends Notifier<RestoreState> {
         log: List.of(log),
         finishedAt: DateTime.now(),
       );
+      if (success && ref.read(settingsProvider).autoActivate) {
+        unawaited(_autoActivate(request));
+      }
     }
+  }
+
+  /// After a restore the device boots into Setup Assistant, unactivated.
+  /// Waits for it to come back, then activates it with Apple's activation
+  /// server (as Finder does), so it is ready to set up.
+  Future<void> _autoActivate(RestoreRequest request) async {
+    void set(AutoActivation a, [String? note]) {
+      if (!ref.mounted || state.request != request) return;
+      state = state.copyWith(activation: a, activationNote: () => note);
+    }
+
+    if (!ref.read(deviceToolchainProvider).has(DeviceTool.pymobiledevice3)) {
+      return set(
+        AutoActivation.skipped,
+        tr(
+          'Install pymobiledevice3 (Settings › Device tools › Setup assistant) to activate devices automatically.',
+        ),
+      );
+    }
+    set(AutoActivation.waiting);
+    final udid = request.device.udid;
+    final ecid = request.device.ecid ?? request.device.info?.ecid;
+    final deadline = DateTime.now().add(const Duration(minutes: 10));
+    ConnectedDevice? device;
+    while (DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(seconds: 5));
+      if (!ref.mounted || state.request != request) return;
+      final booted = ref
+          .read(devicesProvider)
+          .devices
+          .where((d) => d.mode.isBooted)
+          .toList();
+      device =
+          booted
+              .where(
+                (d) =>
+                    (udid != null && d.udid == udid) ||
+                    (ecid != null && (d.ecid ?? d.info?.ecid) == ecid),
+              )
+              .firstOrNull ??
+          (booted.length == 1 ? booted.first : null);
+      if (device != null) break;
+    }
+    if (device == null) {
+      return set(
+        AutoActivation.failed,
+        tr(
+          'The device didn\'t come back after the restore. Activate it from My Device › Overview once it has started.',
+        ),
+      );
+    }
+    if (device.info?.activationState == 'Activated') {
+      return set(AutoActivation.done);
+    }
+    set(AutoActivation.activating);
+    Object? error;
+    for (var attempt = 0; attempt < 4; attempt++) {
+      try {
+        await ref.read(deviceServiceProvider).activate(device!);
+        error = null;
+        break;
+      } on Object catch (e) {
+        error = e;
+        // Services may still be starting right after boot.
+        await Future<void>.delayed(const Duration(seconds: 10));
+        if (!ref.mounted) return;
+        device = ref.read(devicesProvider).byId(device!.id) ?? device;
+      }
+    }
+    if (error != null) {
+      return set(
+        AutoActivation.failed,
+        trf(
+          'Automatic activation failed: {0}. If Activation Lock is on, sign in with the owner\'s Apple ID on the device.',
+          [error],
+        ),
+      );
+    }
+    set(AutoActivation.done);
+    unawaited(ref.read(devicesProvider.notifier).refresh(device!.id));
   }
 
   void abort() {

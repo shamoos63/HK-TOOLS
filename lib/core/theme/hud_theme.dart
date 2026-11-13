@@ -78,10 +78,20 @@ class HudPalette {
 abstract final class HudColors {
   static HudPalette current = HudPalette.dark;
 
+  /// Translucent window (macOS): the blurred desktop shows through the
+  /// window background, the sidebar and, a little, the cards.
+  static bool translucent = false;
+
   static bool get isLight => current.brightness == Brightness.light;
-  static Color get background => current.background;
-  static Color get sidebar => current.sidebar;
-  static Color get surface => current.surface;
+  static Color get background => translucent
+      ? current.background.withValues(alpha: isLight ? 0.45 : 0.5)
+      : current.background;
+  static Color get sidebar => translucent
+      ? current.sidebar.withValues(alpha: isLight ? 0.15 : 0.2)
+      : current.sidebar;
+  static Color get surface => translucent
+      ? current.surface.withValues(alpha: isLight ? 0.66 : 0.62)
+      : current.surface;
   static Color get surfaceRaised => current.surfaceRaised;
   static Color get glass => current.overlay.withValues(alpha: 0.06);
   static Color get glassBorder => current.glassBorder;
@@ -173,7 +183,7 @@ abstract final class HudTheme {
         trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: HudColors.surface,
+        backgroundColor: palette.surfaceRaised,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       tooltipTheme: TooltipThemeData(

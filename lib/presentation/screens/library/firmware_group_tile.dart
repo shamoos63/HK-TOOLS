@@ -204,6 +204,9 @@ class _DeviceChip extends StatelessWidget {
     ),
     child: Text(
       label,
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.ellipsis,
       style: TextStyle(
         fontSize: 11.5,
         color: muted ? HudColors.textMuted : HudColors.textPrimary,

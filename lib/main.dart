@@ -226,6 +226,15 @@ class _HkIpswManagerAppState extends ConsumerState<HkIpswManagerApp>
       AppLanguage.system => L10n.systemPrefersArabic,
     };
     final palette = light ? HudPalette.light : HudPalette.dark;
+    // Translucent window on macOS unless "Reduced visual effects" is on.
+    final glass = Platform.isMacOS && !s.effectiveReducedEffects;
+    final glassChanged = glass != HudColors.translucent;
+    HudColors.translucent = glass;
+    if (Platform.isMacOS && glassChanged) {
+      const MethodChannel('hk_tools/window')
+          .invokeMethod<void>('setGlass', glass)
+          .catchError((_) {});
+    }
     if (Platform.isMacOS) {
       // Native title bar follows the app's choice (system = follow macOS).
       const MethodChannel('hk_tools/window')
@@ -237,7 +246,8 @@ class _HkIpswManagerAppState extends ConsumerState<HkIpswManagerApp>
           )
           .catchError((_) {});
     }
-    final changed = palette != HudColors.current || arabic != L10n.arabic;
+    final changed =
+        palette != HudColors.current || arabic != L10n.arabic || glassChanged;
     HudColors.current = palette;
     L10n.arabic = arabic;
     return changed;
@@ -246,7 +256,9 @@ class _HkIpswManagerAppState extends ConsumerState<HkIpswManagerApp>
   @override
   Widget build(BuildContext context) {
     ref.listen(
-      settingsProvider.select((s) => (s.appearance, s.language)),
+      settingsProvider.select(
+        (s) => (s.appearance, s.language, s.effectiveReducedEffects),
+      ),
       (_, _) => _refresh(),
     );
     final scale = ref.watch(settingsProvider.select((s) => s.effectiveUiScale));

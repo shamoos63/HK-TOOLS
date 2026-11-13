@@ -442,6 +442,9 @@ class DeviceHero extends ConsumerWidget {
     final type = device.productType ?? info?.productType;
     final model = type == null ? null : index.displayName(type);
     final paired = device.mode.isBooted && device.pairState == PairState.paired;
+    final storage = paired
+        ? ref.watch(deviceStorageProvider(device.id)).value
+        : null;
     final title = info?.name ?? device.name ?? model ?? device.displayName;
     final subtitle = [
       if (model != null && model != title) model,
@@ -559,6 +562,12 @@ class DeviceHero extends ConsumerWidget {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
+                    if (storage != null)
+                      HudPill(
+                        '${storage.marketingGb} GB',
+                        color: HudColors.cyan,
+                        icon: Icons.sd_storage_rounded,
+                      ),
                     if (info?.activationState != null)
                       HudPill(
                         info!.activationState!,

@@ -219,7 +219,23 @@ class StorageInfo {
     required this.totalData,
     required this.availableData,
     this.totalSystem,
+    this.apps,
+    this.photos,
   });
+
+  /// Space apps and their data use (`MobileApplicationUsage`).
+  final int? apps;
+
+  /// Photos and camera roll (`PhotoUsage` + `CameraUsage`).
+  final int? photos;
+
+  /// Marketing capacity: 128 GB for a 128 GB iPhone (which reports a bit
+  /// less as `TotalDiskCapacity`).
+  int get marketingGb {
+    const sizes = [8, 16, 32, 64, 128, 256, 512, 1024, 2048];
+    final gb = totalDisk / 1e9;
+    return sizes.firstWhere((s) => s >= gb * 0.9, orElse: () => gb.round());
+  }
 
   final int totalDisk;
   final int totalData;

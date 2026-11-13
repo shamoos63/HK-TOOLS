@@ -1195,4 +1195,89 @@ const arabicStrings = <String, String>{
   'Then press "Try again with erase".': 'ثم اضغط "حاول مرة أخرى مع المسح".',
   'Check that the firmware is still signed for this iPhone.':
       'تأكد من أن البرنامج الثابت لا يزال موقّعاً لهذا iPhone.',
+  'Videos': 'الفيديوهات',
+  'Stickers': 'الملصقات',
+  '{0} items': '{0} عنصر',
+  'No media in this backup': 'لا توجد وسائط في هذه النسخة الاحتياطية',
+  'Photos and videos only appear when they were included in the backup.':
+      'تظهر الصور والفيديوهات فقط إذا كانت مضمّنة في النسخة الاحتياطية.',
+  'Media': 'الوسائط',
+  '{0} is not installed on the phone.': '{0} غير مثبّت على الهاتف.',
+  'Saving WhatsApp': 'حفظ تطبيق واتساب',
+  'WhatsApp could not be removed from the phone: {0}':
+      'تعذّرت إزالة واتساب من الهاتف: {0}',
+  'WhatsApp could not be installed on the phone: {0}':
+      'تعذّر تثبيت واتساب على الهاتف: {0}',
+  'Enter the phone number WhatsApp is registered with on the Android phone, with the country code.':
+      'أدخل رقم الهاتف المسجّل به واتساب على هاتف Android، مع رمز الدولة.',
+  'Connect the Android phone with USB debugging on.':
+      'وصّل هاتف Android مع تفعيل تصحيح USB.',
+  '{0} is not installed on the Android phone. Install it from Google Play, register it with your number, then try again.': '{0} غير مثبّت على هاتف Android. ثبّته من Google Play وسجّله برقمك، ثم أعد المحاولة.',
+  '{0} is removed from {1} and installed again, then the chats from this iPhone backup and the phone\'s own chats are put back. Keep the phone unlocked and connected.': 'تُزال {0} من {1} ويُثبّت مجدداً، ثم تُعاد محادثات نسخة iPhone هذه ومحادثات الهاتف نفسه. أبقِ الهاتف مفتوح القفل ومتصلاً.',
+  '{0} is removed from {1} and installed again, so the chats now on that phone are replaced by the ones from this iPhone backup. To keep them, first copy the phone\'s backup in "From Android". Keep the phone unlocked and connected.': 'يُزال {0} من {1} ويُثبّت مجدداً، فتُستبدل المحادثات الموجودة حالياً على ذلك الهاتف بمحادثات نسخة iPhone هذه. للاحتفاظ بها، انسخ أولاً النسخة الاحتياطية للهاتف في "من Android". أبقِ الهاتف مفتوح القفل ومتصلاً.',
+  'On the Android phone: install {0} from Google Play and register it with your number, and turn on USB debugging. Then enter that number here and press Restore.': 'على هاتف Android: ثبّت {0} من Google Play وسجّله برقمك، وفعّل تصحيح USB. ثم أدخل ذلك الرقم هنا واضغط استعادة.',
+  'The chats already on the Android phone will be kept.':
+      'سيتم الاحتفاظ بالمحادثات الموجودة على هاتف Android.',
+  'Phone number, e.g. +961 3 123456': 'رقم الهاتف، مثلاً ‎+961 3 123456',
+  '1/3 Building the Android backup from the iPhone chats…':
+      '1/3 إنشاء نسخة Android الاحتياطية من محادثات iPhone…',
+  '2/3 Reinstalling {0} on the phone…': '2/3 إعادة تثبيت {0} على الهاتف…',
+  '3/3 Copying the backup and media to the phone…':
+      '3/3 نسخ النسخة الاحتياطية والوسائط إلى الهاتف…',
+  'The backup is on the phone, but {0} could not be installed again. Install it from Google Play, open it, confirm your number, tap Restore, and when it asks for the 64-digit key enter 64 zeros:': 'النسخة الاحتياطية على الهاتف، لكن تعذّرت إعادة تثبيت {0}. ثبّته من Google Play وافتحه، وأكّد رقمك، واضغط استعادة، وعندما يطلب المفتاح المكوّن من 64 رقماً أدخل 64 صفراً:',
+  'Done: {0} messages and {1} photos, videos and voice notes are on the phone. {2} is open: agree, confirm your number, tap Restore, and when it asks for the 64-digit key enter 64 zeros:': 'تم: أصبحت {0} رسالة و{1} صورة وفيديو ورسالة صوتية على الهاتف. {2} مفتوح: وافق، وأكّد رقمك، واضغط استعادة، وعندما يطلب المفتاح المكوّن من 64 رقماً أدخل 64 صفراً:',
+  'Backing up {0} from {1}': 'جارٍ النسخ الاحتياطي لـ {0} من {1}',
+  'Back up WhatsApp': 'نسخ واتساب احتياطياً',
+  'Back up WhatsApp Business': 'نسخ واتساب للأعمال احتياطياً',
+  'No backup with WhatsApp found. Press "Back up WhatsApp" (only WhatsApp is saved, but the iPhone still sends everything, so it can take a while), or "Choose backup folder…" for an iTunes or 3uTools backup saved somewhere else. Backups must not be encrypted.': 'لم يتم العثور على نسخة احتياطية تحتوي على واتساب. اضغط "نسخ واتساب احتياطياً" (يُحفظ واتساب فقط، لكن iPhone يرسل كل شيء، لذا قد يستغرق ذلك بعض الوقت)، أو "اختيار مجلد النسخة الاحتياطية…" لنسخة iTunes أو 3uTools محفوظة في مكان آخر. يجب ألا تكون النسخ مشفّرة.',
+  'Choose the app to move': 'اختر التطبيق المراد نقله',
+  'Connect the Android phone': 'وصّل هاتف Android',
+  'Install {0} from Google Play and register it with your number. Then connect the phone with a USB cable and turn on USB debugging (Settings → About phone → tap Build number 7 times → Developer options → USB debugging).': 'ثبّت {0} من Google Play وسجّله برقمك. ثم وصّل الهاتف بكابل USB وفعّل تصحيح USB (الإعدادات ← حول الهاتف ← اضغط على رقم الإصدار 7 مرات ← خيارات المطور ← تصحيح USB).',
+  'Waiting for the phone…': 'بانتظار الهاتف…',
+  'The number {0} is registered with': 'الرقم المسجّل به {0}',
+  'With the country code. WhatsApp checks that the backup belongs to this number.':
+      'مع رمز الدولة. يتحقق واتساب من أن النسخة الاحتياطية تخص هذا الرقم.',
+  'e.g. +961 3 123456': 'مثلاً ‎+961 3 123456',
+  'Next': 'التالي',
+  'The business app (green "B" icon)': 'تطبيق الأعمال (أيقونة "B" الخضراء)',
+  'The regular app': 'التطبيق العادي',
+  'Build the Android backup from the iPhone chats':
+      'إنشاء نسخة Android الاحتياطية من محادثات iPhone',
+  'Reinstall {0} on the phone': 'إعادة تثبيت {0} على الهاتف',
+  'Copy the backup and media to the phone':
+      'نسخ النسخة الاحتياطية والوسائط إلى الهاتف',
+  '{0} on the phone is reinstalled, so its current chats are replaced. To keep them, copy the phone\'s backup in "From Android" first.': 'يُعاد تثبيت {0} على الهاتف، فتُستبدل محادثاته الحالية. للاحتفاظ بها، انسخ أولاً النسخة الاحتياطية للهاتف في "من Android".',
+  'Install {0} from Google Play.': 'ثبّت {0} من Google Play.',
+  'Open {0} on the phone and tap Agree.': 'افتح {0} على الهاتف واضغط موافقة.',
+  'Confirm your phone number.': 'أكّد رقم هاتفك.',
+  'When it finds the backup, tap Restore.':
+      'عندما يجد النسخة الاحتياطية، اضغط استعادة.',
+  'When it asks for the 64-digit key, enter 64 zeros:':
+      'عندما يطلب المفتاح المكوّن من 64 رقماً، أدخل 64 صفراً:',
+  'The backup is on the phone. Finish on the phone:':
+      'النسخة الاحتياطية على الهاتف. أكمل على الهاتف:',
+  'Move & restore': 'النقل والاستعادة',
+  'Preview': 'معاينة',
+  'Preview ({0} chats)': 'معاينة ({0} محادثة)',
+  'Nothing to preview yet': 'لا يوجد ما يُعاين بعد',
+  'Pick where the chats come from in "Move & restore": an iPhone, iTunes or 3uTools backup, an Android phone, or a backup file. The chats and media then show here.': 'اختر مصدر المحادثات في "النقل والاستعادة": نسخة احتياطية من iPhone أو iTunes أو 3uTools، أو هاتف Android، أو ملف نسخة احتياطية. ستظهر المحادثات والوسائط هنا بعد ذلك.',
+  'Go to Move & restore': 'الانتقال إلى النقل والاستعادة',
+  'Activate after flashing': 'التفعيل بعد التثبيت',
+  'When a firmware restore finishes, wait for the device to start and activate it with Apple, like Finder does. Needs pymobiledevice3.': 'عند انتهاء استعادة البرنامج الثابت، انتظر حتى يعمل الجهاز ثم فعّله مع Apple، كما يفعل Finder. يحتاج إلى pymobiledevice3.',
+  'Waiting for the device to start, then activating it…':
+      'بانتظار تشغيل الجهاز، ثم تفعيله…',
+  'Activated. The device is ready to set up.':
+      'تم التفعيل. الجهاز جاهز للإعداد.',
+  'The device was not activated.': 'لم يتم تفعيل الجهاز.',
+  'Install pymobiledevice3 (Settings › Device tools › Setup assistant) to activate devices automatically.': 'ثبّت pymobiledevice3 (الإعدادات › أدوات الجهاز › مساعد الإعداد) لتفعيل الأجهزة تلقائياً.',
+  'The device didn\'t come back after the restore. Activate it from My Device › Overview once it has started.':
+      'لم يعد الجهاز بعد الاستعادة. فعّله من جهازي › نظرة عامة بعد أن يعمل.',
+  'Automatic activation failed: {0}. If Activation Lock is on, sign in with the owner\'s Apple ID on the device.': 'فشل التفعيل التلقائي: {0}. إذا كان قفل التفعيل مفعّلاً، سجّل الدخول بحساب Apple الخاص بالمالك على الجهاز.',
+  'iOS version': 'إصدار iOS',
+  'Build': 'رقم البناء',
+  'Model number': 'رقم الطراز',
+  'Activation': 'التفعيل',
+  'Device details': 'تفاصيل الجهاز',
+  'Hide serial, IMEI and UDID': 'إخفاء الرقم التسلسلي وIMEI وUDID',
+  'Show serial, IMEI and UDID': 'إظهار الرقم التسلسلي وIMEI وUDID',
 };

@@ -37,14 +37,14 @@ class OverviewTab extends ConsumerWidget {
               final left = [
                 _IdentityCard(device: device),
                 const SizedBox(height: 14),
-                _ActivationCard(device: device),
-                const SizedBox(height: 14),
-                _ActionsCard(device: device),
+                _StorageCard(device: device),
               ];
               final right = [
                 _BatteryCard(device: device),
                 const SizedBox(height: 14),
-                _StorageCard(device: device),
+                _ActivationCard(device: device),
+                const SizedBox(height: 14),
+                _ActionsCard(device: device),
               ];
               return wide
                   ? Row(
@@ -66,33 +66,142 @@ class OverviewTab extends ConsumerWidget {
   }
 }
 
-class _IdentityCard extends StatelessWidget {
+/// The device at a glance: a compact two-column sheet. Values that
+/// identify the device or its owner (serial, IMEI, UDID, phone number) are
+/// hidden until the eye button is pressed; clicking a value copies it.
+class _IdentityCard extends StatefulWidget {
   const _IdentityCard({required this.device});
 
   final ConnectedDevice device;
 
   @override
+  State<_IdentityCard> createState() => _IdentityCardState();
+}
+
+class _IdentityCardState extends State<_IdentityCard> {
+  bool _reveal = false;
+
+  @override
   Widget build(BuildContext context) {
-    final i = device.info!;
+    final d = widget.device;
+    final i = d.info!;
+    String? mask(String? v) {
+      if (v == null || v.isEmpty || _reveal) return v;
+      final keep = v.length > 6 ? 4 : 1;
+      return '${v.substring(0, keep)}${'•' * (v.length - keep).clamp(4, 12)}';
+    }
+
+    final rows = <(String, String?, String?)>[
+      (tr('iOS version'), i.productVersion, null),
+      (tr('Build'), i.buildVersion, null),
+      (tr('Identifier'), i.productType, null),
+      (tr('Model number'), i.partNumber, null),
+      (tr('Hardware model'), i.hardwareModel, null),
+      (tr('CPU architecture'), i.cpuArchitecture, null),
+      (tr('Region'), i.regionInfo, null),
+      (tr('Activation'), i.activationState, null),
+      (tr('Baseband'), i.basebandVersion, null),
+      (tr('Wi-Fi address'), i.wifiAddress, null),
+      (tr('Bluetooth'), i.bluetoothAddress, null),
+      (tr('Serial number'), mask(i.serialNumber), i.serialNumber),
+      (tr('IMEI'), mask(i.imei), i.imei),
+      (tr('Phone number'), mask(i.phoneNumber), i.phoneNumber),
+      (tr('ECID'), mask(d.ecidHex), d.ecidHex),
+      (tr('UDID'), mask(d.udid), d.udid),
+    ].where((r) => r.$2 != null && r.$2!.isNotEmpty).toList();
+
     return DeviceCard(
-      title: tr('Identity'),
+      title: tr('Device details'),
       icon: Icons.fingerprint_rounded,
-      child: InfoTable([
-        (tr('Identifier'), i.productType),
-        (tr('Hardware model'), i.hardwareModel),
-        (tr('Serial number'), i.serialNumber),
-        (tr('UDID'), device.udid),
-        (tr('ECID'), device.ecidHex),
-        (tr('IMEI'), i.imei),
-        (tr('Phone number'), i.phoneNumber),
-        (tr('Wi-Fi address'), i.wifiAddress),
-        (tr('Bluetooth'), i.bluetoothAddress),
-        (tr('Baseband'), i.basebandVersion),
-        (tr('CPU architecture'), i.cpuArchitecture),
-        (tr('Region'), i.regionInfo),
-      ]),
+      trailing: HudIconButton(
+        icon: _reveal ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+        tooltip: _reveal
+            ? tr('Hide serial, IMEI and UDID')
+            : tr('Show serial, IMEI and UDID'),
+        onPressed: () => setState(() => _reveal = !_reveal),
+      ),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final cols = c.maxWidth > 520 ? 2 : 1;
+          final w = (c.maxWidth - (cols - 1) * 18) / cols;
+          return Wrap(
+            spacing: 18,
+            runSpacing: 2,
+            children: [
+              for (final (label, value, copy) in rows)
+                SizedBox(
+                  width: w,
+                  child: _SpecRow(
+                    label: label,
+                    value: value!,
+                    copyValue: copy ?? value,
+                    good: label == tr('Activation')
+                        ? value == 'Activated'
+                        : null,
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
     );
   }
+}
+
+class _SpecRow extends StatelessWidget {
+  const _SpecRow({
+    required this.label,
+    required this.value,
+    required this.copyValue,
+    this.good,
+  });
+
+  final String label;
+  final String value;
+  final String copyValue;
+
+  /// Colours the value green / amber (activation state).
+  final bool? good;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    borderRadius: BorderRadius.circular(6),
+    onTap: () => copyText(context, copyValue),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 5,
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 12.5, color: HudColors.textMuted),
+            ),
+          ),
+          Expanded(
+            flex: 6,
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textDirection: TextDirection.ltr,
+              textAlign: Directionality.of(context) == TextDirection.rtl
+                  ? TextAlign.right
+                  : TextAlign.left,
+              style: HudTheme.telemetry(
+                size: 13,
+                color: good == null
+                    ? HudColors.textPrimary
+                    : good!
+                    ? HudColors.success
+                    : HudColors.warning,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _BatteryCard extends ConsumerWidget {
@@ -245,6 +354,7 @@ class _Gauge extends StatelessWidget {
   );
 }
 
+/// Storage as one bar split by what uses it, with a legend.
 class _StorageCard extends ConsumerWidget {
   const _StorageCard({required this.device});
 
@@ -256,40 +366,114 @@ class _StorageCard extends ConsumerWidget {
     return DeviceCard(
       title: tr('Storage'),
       icon: Icons.sd_storage_rounded,
+      trailing: async.value == null
+          ? null
+          : HudPill('${async.value!.marketingGb} GB', color: HudColors.cyan),
       child: async.when(
         loading: () => const LinearProgressIndicator(minHeight: 2),
         error: (e, _) => DeviceError(e),
-        data: (s) => s == null
-            ? Text(
-                tr('Not reported'),
-                style: TextStyle(color: HudColors.textMuted),
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+        data: (s) {
+          if (s == null) {
+            return Text(
+              tr('Not reported'),
+              style: TextStyle(color: HudColors.textMuted),
+            );
+          }
+          final system = (s.totalDisk - s.totalData).clamp(0, s.totalDisk);
+          final apps = s.apps ?? 0;
+          final photos = s.photos ?? 0;
+          final other = (s.used - system - apps - photos).clamp(0, s.totalDisk);
+          final parts = <(String, int, Color)>[
+            (tr('System'), system, HudColors.textMuted),
+            if (apps > 0) (tr('Apps'), apps, HudColors.cyan),
+            if (photos > 0) (tr('Photos'), photos, HudColors.danger),
+            (tr('Other'), other, HudColors.success),
+            (
+              tr('Free'),
+              s.availableData,
+              HudColors.overlay.withValues(alpha: 0.1),
+            ),
+          ];
+          final total = parts.fold<int>(0, (a, p) => a + p.$2);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        trf('{0} used', [formatBytes(s.used, decimals: 1)]),
-                        style: HudTheme.telemetry(color: HudColors.textPrimary),
-                      ),
-                      const Spacer(),
-                      Text(
-                        trf('{0} free of {1}', [
-                          formatBytes(s.availableData, decimals: 1),
-                          formatBytes(s.totalDisk, decimals: 0),
-                        ]),
-                        style: HudTheme.telemetry(
-                          size: 12,
-                          color: HudColors.textMuted,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    trf('{0} used', [formatBytes(s.used, decimals: 1)]),
+                    style: HudTheme.telemetry(
+                      size: 14,
+                      color: HudColors.textPrimary,
+                    ).copyWith(fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(height: 8),
-                  GlowProgressBar(value: s.usedFraction, height: 6),
+                  const Spacer(),
+                  Text(
+                    trf('{0} free of {1}', [
+                      formatBytes(s.availableData, decimals: 1),
+                      formatBytes(s.totalDisk, decimals: 0),
+                    ]),
+                    style: HudTheme.telemetry(
+                      size: 12,
+                      color: HudColors.textMuted,
+                    ),
+                  ),
                 ],
               ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: SizedBox(
+                  height: 14,
+                  child: Row(
+                    children: [
+                      for (final (_, bytes, color) in parts)
+                        if (bytes > 0)
+                          Expanded(
+                            flex: (bytes * 1000 / total).round().clamp(1, 1000),
+                            child: Container(
+                              margin: const EdgeInsetsDirectional.only(
+                                end: 1.5,
+                              ),
+                              color: color,
+                            ),
+                          ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 14,
+                runSpacing: 6,
+                children: [
+                  for (final (label, bytes, color) in parts)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 9,
+                          height: 9,
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$label  ${formatBytes(bytes, decimals: 1)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: HudColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }

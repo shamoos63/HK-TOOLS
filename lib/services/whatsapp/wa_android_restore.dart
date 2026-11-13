@@ -7,6 +7,7 @@ import 'package:sqlite3/sqlite3.dart';
 import 'wa_android_writer.dart';
 import 'wa_backup_locator.dart';
 import 'wa_crypt.dart';
+import 'wa_msgstore_schema.dart';
 import 'wa_parser.dart';
 
 /// What [WaAndroidRestore.prepare] leaves in its output folder, ready to be
@@ -27,29 +28,42 @@ class WaAndroidRestorePackage {
   final WaAndroidImportResult result;
 }
 
-/// iPhone → Android: chats from an iPhone backup (iTunes / Finder / 3uTools /
-/// HK Tools) merged into the Android phone's own encrypted WhatsApp backup.
+/// iPhone → Android, the way Dr.Fone does it (traced from its logs):
 ///
-/// Like the commercial tools, the result is a normal WhatsApp local backup:
-/// WhatsApp on the phone restores it during setup with the 64-digit key.
+///  1. Build an Android `msgstore.db`: start from the phone's own database
+///     when the "From Android" steps copied it (so its chats are kept),
+///     otherwise from a WhatsApp 2.26 template; add the iPhone chats.
+///  2. Encrypt it as a `.crypt15` with a header made from scratch (installed
+///     WhatsApp version, last two digits of the phone number) and the
+///     all-zeros 64-digit key.
+///  3. The caller reinstalls WhatsApp clean, pushes the backup and media,
+///     and the user restores with 64 zeros as the key.
 abstract final class WaAndroidRestore {
   static WaAndroidRestorePackage prepare({
     required String iphoneBackupDir,
-    required String androidCrypt15Path,
-    required String keyHex,
     required String outDir,
+    required String appVersion,
+    required String jidSuffix,
+    String? baseCrypt15Path,
+    String? baseKeyHex,
     bool business = false,
   }) {
     final archive = WaBackupLocator.read(iphoneBackupDir, business: business);
-    final key = WaBackupKey.fromKeyFile(Uint8List.fromList(keyHex.codeUnits));
-    final template = File(androidCrypt15Path).readAsBytesSync();
-    final plain = decryptWhatsAppDb(template, key);
 
     final out = Directory(outDir);
     if (out.existsSync()) out.deleteSync(recursive: true);
     out.createSync(recursive: true);
     final dbPath = p.join(outDir, 'msgstore.db');
-    File(dbPath).writeAsBytesSync(plain);
+    if (baseCrypt15Path != null && baseKeyHex != null) {
+      final baseKey = WaBackupKey.fromKeyFile(
+        Uint8List.fromList(baseKeyHex.codeUnits),
+      );
+      File(dbPath).writeAsBytesSync(
+        decryptWhatsAppDb(File(baseCrypt15Path).readAsBytesSync(), baseKey),
+      );
+    } else {
+      createTemplateMsgstore(dbPath);
+    }
 
     final media = _IphoneMedia(iphoneBackupDir, business: business);
     final result = WaAndroidWriter.importFile(
@@ -59,11 +73,19 @@ abstract final class WaAndroidRestore {
       business: business,
     );
 
+    final zero = WaBackupKey.fromKeyFile(
+      Uint8List.fromList(waZeroKeyHex.codeUnits),
+    );
     final crypt = p.join(outDir, 'Databases', 'msgstore.db.crypt15');
     File(crypt)
       ..parent.createSync(recursive: true)
       ..writeAsBytesSync(
-        encryptWhatsAppDb(File(dbPath).readAsBytesSync(), key, template),
+        encryptWhatsAppDbFresh(
+          File(dbPath).readAsBytesSync(),
+          zero,
+          appVersion: appVersion,
+          jidSuffix: jidSuffix,
+        ),
         flush: true,
       );
     File(dbPath).deleteSync();
@@ -83,6 +105,48 @@ abstract final class WaAndroidRestore {
       mediaDir: mediaDir,
       result: result,
     );
+  }
+}
+
+/// Creates an empty WhatsApp `msgstore.db` at [path] from the built-in
+/// schema.
+void createTemplateMsgstore(String path) {
+  final f = File(path);
+  if (f.existsSync()) f.deleteSync();
+  final db = sqlite3.open(path);
+  try {
+    db.execute('PRAGMA journal_mode=DELETE');
+    db.execute('BEGIN');
+    for (final sql in waMsgstoreSchema) {
+      db.execute(sql);
+    }
+    // FTS4 tables: created normally when this SQLite has FTS4; otherwise
+    // only registered in the schema (their shadow tables already exist), the
+    // same bytes WhatsApp's own database has. WhatsApp opens them with its
+    // own SQLite, which has FTS4.
+    for (final (name, sql) in waMsgstoreVirtualTables) {
+      try {
+        db.execute('SAVEPOINT vt');
+        db.execute(sql);
+        db.execute('RELEASE vt');
+      } on SqliteException {
+        db.execute('ROLLBACK TO vt');
+        db.execute('RELEASE vt');
+        db.execute('PRAGMA writable_schema = ON');
+        db.execute(
+          "INSERT INTO sqlite_master (type, name, tbl_name, rootpage, sql) "
+          "VALUES ('table', ?, ?, 0, ?)",
+          [name, name, sql],
+        );
+        db.execute('PRAGMA writable_schema = OFF');
+      }
+    }
+    db.execute('CREATE TABLE android_metadata (locale TEXT)');
+    db.execute("INSERT INTO android_metadata VALUES ('en_US')");
+    db.execute('COMMIT');
+    db.execute('PRAGMA user_version = 1');
+  } finally {
+    db.close();
   }
 }
 

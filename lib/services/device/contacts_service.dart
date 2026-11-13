@@ -263,8 +263,14 @@ abstract final class BackupContacts {
     final home = env['HOME'] ?? env['USERPROFILE'] ?? '';
     if (Platform.isWindows) {
       return [
-        for (final drive in const ['C:', 'D:', 'E:'])
+        for (final drive in const ['C:', 'D:', 'E:']) ...[
           p.join('$drive\\', '3uTools', 'Backup'),
+          // 3uTools 9 installs as "3uTools9"; Dr.Fone's WhatsApp backups
+          // land in its Backup folder or in their own folder.
+          p.join('$drive\\', '3uTools9', 'Backup'),
+          p.join('$drive\\', 'Wondershare_DrFone_WhatsApp_Backup'),
+          p.join('$drive\\', 'Wondershare_WhatsAppBusiness_Backup'),
+        ],
         p.join(home, 'Documents', '3uTools', 'Backup'),
         p.join(env['APPDATA'] ?? '', '3uTools', 'Backup'),
       ];

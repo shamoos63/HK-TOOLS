@@ -347,7 +347,8 @@ abstract final class WaIosWriter {
 class _Store {
   _Store(this.db) {
     for (final r in db.select(
-      "SELECT name FROM sqlite_master WHERE type='table'",
+      "SELECT name FROM sqlite_master WHERE type='table' "
+      "AND sql NOT LIKE 'CREATE VIRTUAL%'",
     )) {
       final t = r['name'] as String;
       _cols[t] = {

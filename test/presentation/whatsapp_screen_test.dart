@@ -34,9 +34,15 @@ void main() {
         overrides: [appSupportDirProvider.overrideWithValue('/tmp/hk_support')],
       ),
     );
-    expect(find.text('Decrypt and read WhatsApp chats'), findsOneWidget);
     expect(find.text('Backup'), findsOneWidget);
     expect(find.text('Key file'), findsNothing); // only for encrypted backups
+    // The chats are on their own page, empty until a source is chosen.
+    await tester.tap(find.text('Preview'));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Nothing to preview yet'), findsOneWidget);
+    await tester.tap(find.text('Go to Move & restore'));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Backup'), findsOneWidget);
   });
 
   testWidgets('iPhone / backup source works without a connected iPhone', (
@@ -56,7 +62,6 @@ void main() {
     await tester.pump();
     expect(find.textContaining('No iPhone connected'), findsOneWidget);
     expect(find.text('Choose backup folder…'), findsOneWidget);
-    expect(find.text('Read WhatsApp from an iPhone'), findsOneWidget);
   });
 
   testWidgets('shows chats and messages once inputs are ready', (tester) async {
@@ -77,6 +82,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Preview (2 chats)'));
+    await tester.pump(const Duration(milliseconds: 400));
     expect(find.textContaining('2 chats · 4 messages'), findsOneWidget);
     expect(find.text('Family Group'), findsWidgets);
     expect(find.text('Export HTML'), findsOneWidget);

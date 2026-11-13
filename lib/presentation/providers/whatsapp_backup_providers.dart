@@ -9,6 +9,8 @@ import '../../domain/entities/ios_device.dart';
 import '../../services/device/contacts_service.dart';
 import '../../services/whatsapp/wa_backup_locator.dart';
 import '../../services/whatsapp/wa_backup_patcher.dart';
+import '../../services/whatsapp/wa_media_index.dart';
+import 'whatsapp_android_providers.dart';
 import 'core_providers.dart';
 import 'device_providers.dart';
 import 'whatsapp_providers.dart';
@@ -202,3 +204,21 @@ Future<String> _buildRestoreSet(
 Future<List<bool>> _backupFlavors(String dir) => Isolate.run(
   () => {for (final m in WaBackupLocator.find(dir)) m.isBusiness}.toList(),
 );
+
+/// Where the open archive's photos, videos and stickers are on disk: the
+/// selected iPhone backup, or the media copied from the Android phone.
+final waMediaIndexProvider = FutureProvider.autoDispose<WaMediaIndex?>((ref) {
+  switch (ref.watch(waSourceModeProvider)) {
+    case WaSourceMode.iphone:
+      final dir = ref.watch(waBackupDirProvider);
+      return dir == null ? null : _mediaIndex(dir);
+    case WaSourceMode.android:
+      final dir = ref.watch(waAndroidProvider.select((s) => s.mediaDir));
+      return dir == null ? null : WaMediaIndex.fromFolder(dir);
+    case WaSourceMode.file:
+      return null;
+  }
+});
+
+Future<WaMediaIndex> _mediaIndex(String dir) =>
+    Isolate.run(() => WaMediaIndex.fromBackup(dir));
