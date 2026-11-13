@@ -1,6 +1,10 @@
 import 'dart:io';
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_acrylic/flutter_acrylic.dart';
+import 'package:macos_window_utils/macos_window_utils.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,6 +28,14 @@ import 'presentation/widgets/ui_scale.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // flutter_acrylic: native window effects (macOS / Windows).
+  if (Platform.isMacOS || Platform.isWindows) await Window.initialize();
+  if (Platform.isMacOS) {
+    // Window buttons sit inside the translucent sidebar (no title strip).
+    await WindowManipulator.makeTitlebarTransparent();
+    await WindowManipulator.enableFullSizeContentView();
+    await WindowManipulator.hideTitle();
+  }
   // Windows: hide the system title bar; the app draws its own buttons.
   await initWindowChrome();
   final support = (await getApplicationSupportDirectory()).path;
@@ -199,6 +211,8 @@ class _HkIpswManagerAppState extends ConsumerState<HkIpswManagerApp>
   }
 
   /// Sets the palette and language; `true` when either changed.
+  static bool _firstApply = true;
+
   static bool _apply(AppSettings s) {
     final dispatcher = WidgetsBinding.instance.platformDispatcher;
     // QA: --dart-define=HK_APPEARANCE=light|dark, HK_LANGUAGE=arabic|english
@@ -226,14 +240,17 @@ class _HkIpswManagerAppState extends ConsumerState<HkIpswManagerApp>
       AppLanguage.system => L10n.systemPrefersArabic,
     };
     final palette = light ? HudPalette.light : HudPalette.dark;
-    // Translucent window on macOS unless "Reduced visual effects" is on.
-    final glass = Platform.isMacOS && !s.effectiveReducedEffects;
-    final glassChanged = glass != HudColors.translucent;
+    // Native translucent sidebar (macOS sidebar material, Windows 11 Mica)
+    // unless "Reduced visual effects" is on.
+    final glass =
+        (Platform.isMacOS || Platform.isWindows) && !s.effectiveReducedEffects;
+    final glassChanged =
+        glass != HudColors.translucent ||
+        (glass && light != HudColors.isLight);
     HudColors.translucent = glass;
-    if (Platform.isMacOS && glassChanged) {
-      const MethodChannel('hk_tools/window')
-          .invokeMethod<void>('setGlass', glass)
-          .catchError((_) {});
+    if (glassChanged || _firstApply) {
+      _firstApply = false;
+      unawaited(applyWindowEffect(glass: glass, dark: !light));
     }
     if (Platform.isMacOS) {
       // Native title bar follows the app's choice (system = follow macOS).

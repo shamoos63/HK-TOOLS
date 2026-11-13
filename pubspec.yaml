@@ -11,6 +11,8 @@ dependencies:
   file_selector: ^1.1.0
   flutter:
     sdk: flutter
+  macos_window_utils: ^1.9.1
+  flutter_acrylic: ^1.1.4
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^3.4.3

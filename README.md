@@ -1,309 +1,232 @@
 # HK Tools
 
-<img src="assets/branding/logo.png" width="160" alt="HK Tools logo">
+<img src="assets/branding/logo.png" width="140" alt="HK Tools logo">
 
-**Made By Hisham Khateeb for the Community.**
-Telegram: [t.me/xavior963](https://t.me/xavior963) · Website: [Hishamkhateeb.com](https://hishamkhateeb.com)
+**Made by Hisham Khateeb for the Community.**
+Telegram: [t.me/xavior963](https://t.me/xavior963) · Website: [hishamkhateeb.com](https://hishamkhateeb.com)
 
-Flutter desktop app (Windows 10/11 x64 + macOS) for browsing, bulk-downloading,
-deduplicating and auditing Apple IPSW firmware from IPSW.me v4.
+A desktop app (macOS and Windows 10/11, built with Flutter) for working with iPhones
+and iPads: device info and control, firmware (IPSW) downloads and flashing, apps,
+backups, and WhatsApp transfer between Android and iPhone.
 
-## Layout
+Version **3.0.0**.
 
-```
-lib/
-├── main.dart                           # Hive init, settings/catalog boxes, ProviderScope
-├── core/theme, core/utils              # HUD tokens + theme, byte/rate/ETA formatting
-├── domain/
-│   ├── entities/                       # PlatformType, Device, IpswRelease/IpswGroup,
-│   │                                   # DownloadTask, AppSettings
-│   └── repositories/                   # DownloadTaskRepository, LinkResolver
-├── data/
-│   ├── api/ipsw_api_client.dart        # /devices, /device/{id}, /ipsw/{ver}, /model/{A-number}
-│   ├── cache/catalog_cache.dart        # Hive: devices (24 h TTL), firmware (6 h TTL), model map
-│   ├── repositories/                   # catalog (cache-first + parallel sync), settings, queue JSON
-│   └── resolvers/ipsw_me_link_resolver.dart
-├── services/
-│   ├── catalog/                        # SearchQuery parser, CatalogIndex (search, dedupe, sort)
-│   └── download/                       # chunked engine, queue manager, throttler, SHA1 isolate
-└── presentation/
-    ├── providers/                      # core, catalog, download, ui (Riverpod 3)
-    ├── shell/                          # AppShell, Sidebar, HudHeader (search + telemetry)
-    ├── widgets/hud_widgets.dart        # GlassPanel, NeonButton, PulseDot, Sparkline, …
-    └── screens/
-        ├── library/                    # browse + search, shared-payload tiles, bulk selection bar
-        ├── queue/                      # bandwidth meter, per-thread visualizer, task controls
-        ├── settings/                   # folders, threads, concurrency, caps, SHA1, cache
-        └── repository/                 # inventory, missing-latest diff, duplicate reclaim
-```
+---
 
-## Search syntax
+## Contents
 
-`iPhone 15 Pro` · `Mac14,2` · `A2442` · `iOS 18.0.1` · `macOS Sequoia` · `22A3354` ·
-`is:signed` / `is:unsigned` · `platform:ios|ipados|macos` · `chip:m-series` (or a SoC
-prefix like `chip:t8112`) · `version:18.0` · `build:22A`. Bare numbers ("15") only match
-device names, never OS versions.
+- [Features](#features)
+- [My Device](#my-device)
+- [Firmware: library, downloads, repository](#firmware-library-downloads-repository)
+- [Flashing (restore)](#flashing-restore)
+- [Apps: App Store and IPA Library](#apps-app-store-and-ipa-library)
+- [WhatsApp](#whatsapp)
+- [Interface](#interface)
+- [Installing the device tools](#installing-the-device-tools)
+- [Development](#development)
+- [Credits and licences](#credits-and-licences)
 
-## Download engine
+---
 
-- **Probe** `Range: bytes=0-0` → total size (from `Content-Range`), range support, ETag.
-- **Pre-allocate** the `.hkdl` partial at full size (`SetEndOfFile` on NTFS),
-  then every thread writes at its own offset. No merge step: finishing is a rename.
-- **Dynamic segmentation**: a thread that finishes takes the back half of the
-  largest remaining chunk, so one slow connection can't hold up the end of the file.
-- **Resume**: chunk map checkpointed to `<file>.hkdl.json` every 3 s. Reused only
-  if the remote size/ETag still match. Writes use `If-Range`, so if the file
-  changed on the server you get a full-file 200 instead of the wrong bytes.
-- **Link refresh**: 401/403/410 → `LinkResolver` re-queries IPSW.me for the same
-  build/SHA1 → existing chunks resume on the new URL (up to 3 times per run).
-- **SHA1** runs on a background isolate after the download slot is freed.
+## Features
 
-```
-flutter test        # engine + manager tests against a local range server
-flutter run -d macos   # or -d windows
-```
+| Area | What you get |
+| --- | --- |
+| **My Device** | Waits for a device, then shows a photo of the exact model, details, battery, storage and every tool for it |
+| **Firmware** | Browse every IPSW from IPSW.me, fast multi-threaded downloads, repository audit, duplicate reclaim |
+| **Flashing** | Update or erase-restore with a clear progress bar, plain-language errors and automatic activation |
+| **Apps** | App Store search and downloads (any version), IPA library with update checks, install on device |
+| **WhatsApp** | Read and export chats, Android → iPhone, iPhone → Android, restore from iTunes / 3uTools / Dr.Fone backups |
+| **Interface** | English and Arabic (right-to-left), light and dark mode, native translucent sidebar |
 
-## Repository scanner
+## My Device
 
-- Finds every `.ipsw` under the repository folder and reads `BuildManifest.plist`
-  straight from the ZIP/ZIP64 central directory (a few KB per file, no extraction).
-- Matches files to the catalog by build + supported devices, with Apple's filename as
-  a fallback; flags size mismatches, SHA1 mismatches and unreadable files.
-- Results (and any computed SHA1) are cached per path + size + mtime, so rescans are instant.
-- Hardlinked names are grouped as one physical file (`stat` inode / `fsutil hardlink list`).
-- **Missing firmware**: devices whose latest signed IPSW isn't present, deduplicated by
-  payload, with "Queue all missing".
-- **Duplicates**: the same payload stored twice. Merging only happens when the SHA1s match,
-  and replaces the extra copies with hardlinks (`ln` / `mklink /H`).
-- **Per-device names**: `By Device/<identifier>_<version>_<build>_Restore.ipsw` hardlinks,
-  created automatically after each download (Settings → Per-device hardlinks).
+The app opens on **My Device**. With nothing connected it shows how to connect
+(plug in, unlock, trust). When a device is connected:
 
-Dev/QA launch flags: `--dart-define=HK_START_SECTION=repository`,
-`--dart-define=HK_START_SEARCH="is:signed platform:ios"`, `--dart-define=HK_REPO_DIR=/path`.
-
-## Devices (iPhone / iPad management)
-
-Built on the open-source [libimobiledevice](https://libimobiledevice.org) tools,
-run as separate processes (LGPL, never linked). Feature set modelled on
-iDescriptor; no iDescriptor (AGPL) code is used.
+- **Header:** a product photo of the exact model and colour (from Apple's device-image
+  server, cached), name (renamable), model, iOS version, capacity, activation state,
+  battery and storage at a glance, and shortcuts to *Get firmware*, *Back up* and
+  *Update / restore*.
+- **Overview:** a two-column details sheet (serial, IMEI, UDID and phone number stay
+  hidden until you press the eye button; click any value to copy it), a storage bar by
+  category (System, Apps, Photos, Other, Free), battery health and cycles, activation
+  and Skip Setup, and actions (restart, shut down, sleep, Recovery, factory reset,
+  pair / unpair).
+- **Tabs:** Apps · Files · Photos · Contacts · Screen · Logs · Backup · Tools · Firmware.
 
 | Tab | What it does | Tool |
 | --- | --- | --- |
-| Overview | Activate, Skip Setup Assistant, identity (UDID, ECID, serial, IMEI…), battery health/cycles/temperature, storage, rename, restart/shutdown/sleep, enter/exit Recovery, pair/unpair | `ideviceinfo`, `idevicediagnostics`, `idevicepair`, `idevicename`, `ideviceenterrecovery`, `irecovery` |
-| Apps | App icons, list user/system apps, install `.ipa`, uninstall, browse file-sharing app Documents | `ideviceinstaller`, `afcclient --documents` |
-| Files | Browse the media partition, download, upload, rename, delete, new folder | `afcclient` |
-| Contacts | Contacts from the device's local backups: search, details, duplicates, export to vCard / CSV | `idevicebackup2` + SQLite |
-| Gallery | Camera-roll albums with thumbnails (Photos thumbnail cache, so HEIC previews), import selected / all | `afcclient` |
-| Screen | Screenshots and a live view built from back-to-back captures | `idevicescreenshot` (needs a mounted DDI) |
-| Console | Live syslog with filter, process filter, quiet mode, save | `idevicesyslog` |
-| Backup | Full/incremental backups, encryption on/off, restore or delete a backup | `idevicebackup2` (passwords via `BACKUP_PASSWORD`, never argv) |
-| Tools | Virtual location, Developer Disk Image mount, Developer Mode, crash reports, MobileGestalt query, raw lockdown values | `idevicesetlocation`, `ideviceimagemounter`, `idevicedevmodectl`, `idevicecrashreport` |
-| Restore / Flash | Flash an IPSW from the repository (or any file) in update or erase mode | `idevicerestore -y -P` |
+| Apps | List, install `.ipa`, uninstall, browse app documents | `ideviceinstaller`, `afcclient` |
+| Files | Browse the media partition, download, upload, rename, delete | `afcclient` |
+| Photos | Camera roll by album, preview, export | `afcclient` |
+| Contacts | Read contacts from a local backup, find duplicates, export vCard / CSV | `idevicebackup2` + SQLite |
+| Screen | Screenshots and live view (needs a mounted Developer Disk Image) | `idevicescreenshot` |
+| Logs | Live device log with filters | `idevicesyslog` |
+| Backup | Full backups, encryption on/off, restore or delete | `idevicebackup2` |
+| Tools | Virtual location, Developer Disk Image, Developer Mode, crash reports, MobileGestalt | `idevicesetlocation`, `ideviceimagemounter`, … |
+| Firmware | Flash an IPSW in update or erase mode | `idevicerestore` |
 
-Devices in **Recovery** and **DFU** mode are detected with `irecovery -q` and can be flashed directly.
+**Backups** are saved as `<Device Data>/Backups/<device name> <date>/<udid>`, so every
+backup is kept and easy to recognise. Devices in **Recovery** and **DFU** mode are
+detected too and can be flashed directly.
 
-### Firmware restore (idevicerestore)
+## Firmware: library, downloads, repository
 
-- Lists repository IPSWs whose `BuildManifest.plist` supports the device, with IPSW.me
-  signing status; unsigned builds are blocked (Apple's TSS would refuse them). Offers to
-  download the latest signed IPSW when none is local.
-- Update keeps data; erase is forced for downgrades and DFU, and requires typing `ERASE`.
-- Targets the device by ECID (stable across the Recovery → Restore reboots), runs with
-  `-y` (no prompts) and `-P` (machine-readable `progress: <step> <fraction>`).
-- Device polling pauses during a restore so `irecovery` never competes for the USB device.
-- Extraction cache: `<app support>/restore_cache`; full logs: `<app support>/restore_logs`.
+- **IPSW Library:** every device and build from IPSW.me, with signing status. Search
+  examples: `iPhone 15 Pro` · `Mac14,2` · `A2442` · `iOS 18.0.1` · `22A3354` ·
+  `is:signed` · `platform:ios|ipados|macos` · `chip:m-series` · `version:18.0` · `build:22A`.
+  Builds shared by several devices are downloaded once.
+- **Downloads:** multi-threaded ranged downloads, pre-allocated files, resume after a
+  restart, automatic link refresh when Apple's link expires, SHA1 check after download,
+  global and per-download speed caps.
+- **Repository:** scans your IPSW folder (reads `BuildManifest.plist` straight from the
+  ZIP), flags bad or mismatched files, lists the latest signed firmware you are missing,
+  merges duplicates into hardlinks, and can add `By Device/…` hardlinks per device.
 
-### Installing the tools
+## Flashing (restore)
 
-**macOS**
+- Lists IPSWs from your repository that fit the device, with signing status; offers to
+  download the latest signed one.
+- **Update** keeps data; **Erase and restore** is required for downgrades and DFU and
+  asks you to type `ERASE`.
+- One progress bar for the whole restore, the current step in plain words, and a step
+  checklist. The raw `idevicerestore` output is under **Show technical details**.
+- **Clear errors:** common failures are explained with what to try (Apple not signing
+  the build, lost connection, disk space, damaged IPSW, wrong model, modem, trust,
+  Activation Lock, "erase required" with a *Try again with erase* button, outdated
+  restore tools).
+- **Activate after flashing:** when the restore finishes, the app waits for the device
+  to start and activates it with Apple, as Finder does (Settings › Device tools; on by
+  default). Activation Lock is never bypassed.
+- Logs: `<app support>/restore_logs`.
+
+## Apps: App Store and IPA Library
+
+- **App Store** (via [ipatool](https://github.com/majd/ipatool)): sign in with your
+  Apple ID (the password goes to Apple only), search, list purchases, download the
+  latest or any older version, install on a connected device.
+- **IPA Library:** every `.ipa` in your library folder, grouped by app, with installed
+  state on the device and App Store update checks (*Update* / *Update all*).
+
+## WhatsApp
+
+Everything runs on this computer; nothing is uploaded. Use it only for your own data.
+
+The page has two parts: **Move & restore** (pick a source and run a transfer) and
+**Preview** (browse chats and media).
+
+**Sources**
+
+- **From file:** a `msgstore.db.crypt15` / `.crypt14` with its key file or 64-digit
+  key, or a decrypted `msgstore.db`.
+- **From Android:** connect the phone with USB debugging. The app reads the 64-digit
+  backup key off the phone's screen, waits for the backup, copies it (and the media)
+  over USB and decrypts it. Shows the phone's name, photo, Android version, battery and
+  storage, and lets you pick between several connected phones.
+- **iPhone / iTunes / 3uTools:** back up the connected iPhone, or open any existing
+  backup made by HK Tools, Finder / iTunes, 3uTools or Dr.Fone (found automatically, or
+  *Choose backup folder…*). Works without an iPhone connected.
+
+**Preview:** chats with photo, video and sticker thumbnails, a media grid for the whole
+backup, and export to HTML or CSV.
+
+**Transfers** (WhatsApp and WhatsApp Business)
+
+- **Android → iPhone:** backs up the iPhone, merges the Android chats, media and calls
+  into its WhatsApp data, and restores only WhatsApp to the iPhone (photos, apps and
+  settings are left alone).
+- **Backup → iPhone:** restores WhatsApp from a chosen iTunes / 3uTools / HK Tools
+  backup onto the connected iPhone, WhatsApp only.
+- **iPhone → Android:** converts the chats into Android's format and restores them on
+  the phone through WhatsApp's own local-backup restore.
+
+Backups must not be encrypted. Find My must be off on the iPhone for restores.
+
+## Interface
+
+- **Language:** English or Arabic with a right-to-left layout. *Automatic* follows the
+  computer's language (Settings › Interface).
+- **Appearance:** light or dark. *Automatic* follows the computer.
+- **Translucent sidebar:** the native window material shows through the sidebar
+  (macOS sidebar vibrancy, Windows 11 Mica via
+  [flutter_acrylic](https://pub.dev/packages/flutter_acrylic)); the main panel stays
+  solid. *Reduced visual effects* turns it off.
+- **Interface size:** 75–125% (Windows defaults to 90%).
+
+## Installing the device tools
+
+The app finds tools in: the folder set in Settings › Device tools → `tools/` next to the
+app → `PATH` → Homebrew / MacPorts. The **Setup assistant** (Settings › Device tools,
+also offered at startup) checks everything and installs what is missing.
+
+**macOS** (Homebrew)
+
 ```
-brew install libimobiledevice ideviceinstaller libirecovery
+brew install libimobiledevice ideviceinstaller libirecovery ipatool
+brew install --cask android-platform-tools      # adb, for WhatsApp from Android
 # idevicerestore is not in Homebrew:
 brew install libtatsu libzip openssl@3 autoconf automake libtool pkgconf
 git clone https://github.com/libimobiledevice/idevicerestore
 cd idevicerestore && ./autogen.sh && make && sudo make install
 ```
 
-**Windows**: install *Apple Devices* (Microsoft Store) or iTunes for the USB/usbmuxd and
-Recovery/DFU drivers, then put Windows builds of the libimobiledevice tools and
-`idevicerestore.exe` (with their DLLs) in a `tools\` folder next to `hk_tools.exe`,
-or point Settings › Device tools at their folder.
+pymobiledevice3 (activation, Skip Setup, factory reset, app icons) is installed by the
+setup assistant with [uv](https://github.com/astral-sh/uv), using its own Python.
 
-The app searches: Settings folder → `tools/` next to the executable → `PATH` → Homebrew/MacPorts prefixes.
+**Windows** (all one-click from the setup assistant, verified by SHA-256, installed to
+`%LOCALAPPDATA%\HK Tools\tools`, no administrator rights):
 
-### Not included (yet)
-
-AirPlay receiver (needs UxPlay), iFuse filesystem mounting (needs macFUSE/WinFsp), cable authenticity check, SSH terminal.
-
-## App Store (sidebar › App Store)
-
-Built on [ipatool](https://github.com/majd/ipatool) (MIT), run as a separate process.
-
-- **Sign in with Apple ID**, including the two-factor code step. The password goes to
-  Apple through `ipatool auth login` once and is never stored by this app; ipatool keeps
-  only its session token (macOS Keychain; on Windows an encrypted file whose passphrase
-  the app generates once in its app-support folder).
-- The **first sign-in on a computer** makes ipatool download and prepare Apple's
-  request-signing component (cached afterwards). That can take several minutes, so the
-  dialog shows live status and elapsed time, allows up to 20 minutes, and can be cancelled.
-- **Search** the store (iPhone / iPad), or list **My purchases**.
-- **Download** the latest `.ipa`, or pick **any older version** from the version list.
-  Free apps the account doesn't own yet are claimed automatically (`--purchase`);
-  paid apps must already be bought.
-- **Install** a downloaded app on a connected device (`ideviceinstaller`). App Store
-  IPAs are FairPlay-encrypted: they run on devices signed in with the same Apple ID.
-- Files land in `<Downloads>/HK Tools/App Store` by default; change it (or turn on
-  "Ask where to save each IPA") in Settings › Downloads.
-
-Install: `brew install ipatool` (macOS) or put `ipatool.exe` from the GitHub releases in
-the device `tools\` folder (Windows).
-
-## Interface size
-
-Settings › Interface › *Interface size* (75–125%). Windows defaults to 90% because the
-usual 125–150% display scaling makes the UI large. The window opens at up to 1280×800,
-centered and never larger than the screen, and the interface shrinks further when the
-window is smaller than the layout needs, so nothing overflows.
-
-## Activation, Skip Setup and app icons
-
-These use [pymobiledevice3](https://github.com/doronz88/pymobiledevice3) (GPL-3.0),
-run as a separate process: `pip install pymobiledevice3` (macOS/Windows). The app finds
-it on PATH and in Python's user script folders.
-
-- **Activate** (Overview › Activation & Setup): `pymobiledevice3 activation activate`.
-  It sends the same request as Finder/iTunes to Apple's activation server. Activation Lock
-  is enforced by Apple and is never bypassed: a locked device needs the owner's Apple ID.
-- **Skip Setup**: writes an unsupervised cloud configuration (`SkipSetup` list) through
-  the device's configuration service, the mechanism Apple Configurator uses. Choose which
-  screens to keep (Language & Region, Wi-Fi, Apple ID, Passcode/Face ID, Location); the
-  rest are skipped, then the device restarts. Only works while the device is in Setup
-  Assistant, after it has been activated.
-- **Factory reset** (Overview › Actions): "Erase All Content and Settings" through the
-  device's configuration service (`pymobiledevice3 profile erase-device`), the same as
-  Apple Configurator's Erase. Requires typing `ERASE`; option to keep the eSIM / data plan.
-  The device keeps its iOS version and restarts into Setup Assistant; Activation Lock
-  still applies if Find My was on.
-- **App icons** (Apps tab and App Store): looked up in batches from Apple's public
-  iTunes Search API (only the installed bundle IDs are sent), then built-in apps are read
-  from the device's SpringBoard via pymobiledevice3. Icons are cached in
-  `<app support>/app_icons`.
-
-## Download folders
-
-Settings › Downloads:
-
-- **IPSW download folder**: where firmware downloads land; also the repository the scanner audits.
-- **IPA download folder**: App Store downloads. Default `<Downloads>/HK Tools/App Store`.
-- **Ask where to save each IPA**: pick a folder for every app download.
-- **Device data folder** (Settings › Device tools): backups, screenshots, photos, logs.
-  Default `<Downloads>/HK Tools/Device Data`.
-
-Before a download starts, the folder is created and write-tested. An unplugged external
-drive (`/Volumes/…`, `E:\`), a missing permission, a read-only volume or a full disk
-produces a plain message with a shortcut to Settings, instead of a raw `PathAccessException`.
-
-## IPA Library (sidebar › IPA Library)
-
-Lists every `.ipa` in the IPA library folder (Settings › Downloads, or the folder button
-in the library header), up to 3 subfolder levels deep.
-
-- Reads each IPA's `Info.plist` (binary or XML) and `iTunesMetadata.plist` straight
-  from the ZIP: name, bundle ID, version, build, minimum iOS, App Store id. Results are
-  cached by path, size and date, so rescans are instant.
-- Versions of the same app are grouped (newest first; older ones installable from the
-  ⋮ menu, or deletable).
-- **Install** to the chosen connected device; shows whether the app is installed and
-  whether the device has an older version (**Update on device**).
-- **Updates**: the latest App Store version of every library app is checked through
-  Apple's public lookup API (only bundle IDs are sent). **Update** / **Update all**
-  download the new version with your Apple ID (ipatool) into the library and remove the
-  old file, unless *Keep old versions* is on. The sidebar shows how many updates exist.
-- **Add IPAs…** copies existing files into the library; files that aren't valid IPAs
-  are listed separately.
-
-## Contacts (Devices › Contacts)
-
-iOS exposes the address book to a computer only through backups (or Apple's sync
-protocol), so contacts are read from the device's local backups, from HK Tools'
-backup folder and from Finder / iTunes backups on this computer. **Back up now** makes a
-fresh one. Reading never changes anything on the device or in the backup (the database
-is copied to a temp folder first).
-
-- Name, organisation, phones, emails, addresses, websites, birthday, notes and photo.
-- Search by name, number (digits match any format) or email; filter duplicates
-  (contacts sharing a number or email) or contacts without a phone.
-- Export the selection, or everything shown, to vCard 3.0 (`.vcf`, photos included) or CSV.
-- Encrypted backups can't be read; turn backup encryption off and back up again.
-
-## Windows requirements & setup assistant
-
-At startup (and from Settings › Device tools › **Setup assistant**) HK Tools checks
-what it needs and offers to install anything missing in one click:
-
-| Component | Needed for | Installed from |
+| Component | Needed for | Source |
 | --- | --- | --- |
-| Apple device drivers (**required**) | USB access (Apple Mobile Device Service), Recovery/DFU drivers | *Apple Devices*, Microsoft Store (`winget … 9NP83LWLPZ9K`); opens the Store if winget is missing |
-| libimobiledevice tools (**required**) | detection, info, files, backups, screen, console | [jrjr/libimobiledevice-windows](https://github.com/jrjr/libimobiledevice-windows) release zip, pinned SHA-256 |
-| idevicerestore / irecovery / ideviceinstaller | flashing, Recovery/DFU detection, app installs | your own build via `.github/workflows/windows-device-tools.yml` (set `windowsExtrasRepo`) |
-| ipatool | App Store + IPA library updates | official [ipatool](https://github.com/majd/ipatool) release, pinned SHA-256 (x64/ARM64) |
-| pymobiledevice3 | activation, skip setup, factory reset, icons; app install fallback | [uv](https://github.com/astral-sh/uv) (pinned SHA-256) installs it with its **own Python 3.12** in `%LOCALAPPDATA%\HK Tools`; the system Python is never used (its lzfse / pylzss dependencies only have Windows builds up to Python 3.12) |
+| Apple Devices (required) | USB, Recovery and DFU drivers | Microsoft Store |
+| libimobiledevice tools (required) | detection, info, files, backups, screen, logs | [jrjr/libimobiledevice-windows](https://github.com/jrjr/libimobiledevice-windows) |
+| idevicerestore, irecovery, ideviceinstaller | flashing, Recovery/DFU, app installs | this repo's [releases](https://github.com/shamoos63/HK-TOOLS/releases), built by `.github/workflows/windows-device-tools.yml` |
+| ipatool | App Store | [majd/ipatool](https://github.com/majd/ipatool) releases |
+| pymobiledevice3 | activation, Skip Setup, factory reset, icons | uv with a private Python 3.12 |
+| adb | WhatsApp from Android | `winget install Google.PlatformTools` |
 
-Downloads are verified before anything is unpacked into
-`%LOCALAPPDATA%\HK Tools\tools` (no administrator rights needed), which the app
-searches automatically. Without ideviceinstaller, app list/install/uninstall use
-pymobiledevice3. The Visual C++ runtime is bundled next to `hk_tools.exe` by the
-Windows build, so the app starts even on a clean PC.
+The Windows device tools workflow rebuilds the libimobiledevice stack monthly (or on
+demand from the Actions tab) and publishes `hk-tools-windows-device-tools.zip` as the
+latest release. The repository must stay public so the app can download it.
 
-On macOS the same assistant uses Homebrew, and uv for pymobiledevice3.
+## Development
 
-**Reduced visual effects** (Settings › Interface, on by default on Windows) replaces the
-background glows and live blur behind panels with solid panels. Some Windows graphics
-drivers render those effects as white, washed-out areas.
+```
+flutter pub get
+flutter test
+flutter run -d macos        # or -d windows
+```
 
-## WhatsApp chat archive (sidebar › WhatsApp)
+```
+lib/
+├── core/            # theme (palettes, glass), l10n (English / Arabic), utils
+├── domain/          # entities: devices, firmware, downloads, settings
+├── data/            # IPSW.me API client, Hive caches, repositories
+├── services/        # catalog, download engine, device tools, restore, app store,
+│                    # setup assistant, whatsapp, android
+└── presentation/    # Riverpod providers, shell (sidebar, header), screens, widgets
+```
 
-Decrypts a WhatsApp message database and lets you read and export the chats —
-entirely on this computer, nothing uploaded. Inspired by
-[wa-transfer](https://github.com/AqibCybery/wa-transfer); this is the
-**decrypt + archive** half (which works reliably), not that project's
-inject-into-an-iPhone-backup half (whose `ChatStorage.sqlite`/`Manifest.db`
-code is non-functional — see notes below).
+Translations live in `lib/core/l10n/strings_ar.dart`, keyed by the English text; wrap
+new interface text in `tr('…')` or `trf('… {0} …', [value])`.
 
-- **Input:** a `msgstore.db.crypt15` (or `.crypt14`) backup plus the WhatsApp
-  `key` file, or an already-decrypted `msgstore.db`. The key can also be pasted
-  as the 64-digit end-to-end backup code.
-- **Decryption** follows the documented WhatsApp format: a Java-serialized key
-  file → root key → `HMAC(HMAC(0,root), "backup encryption"‖0x01)` → AES-256-GCM,
-  with the 16-byte IV read out of the variable-length protobuf header (not a
-  fixed offset — the fixed-offset shortcut is why simple decryptors fail on
-  real crypt15 files). Verified against a key-derivation reference vector and a
-  full encrypt→decrypt round-trip.
-- **Parsing** reads the modern `message`/`chat`/`jid` schema (WhatsApp 2021+)
-  and falls back to the legacy `messages`/`chat_list` tables. (wa-transfer read
-  only the legacy tables, which newer WhatsApp no longer fills — a main reason
-  its parser returned nothing.)
-- **Browse** chats and messages in a WhatsApp-style view; **export** to a
-  searchable HTML page or a UTF-8 CSV.
+Launch flags for screenshots and QA:
 
-### From an iPhone
+| Flag | Example |
+| --- | --- |
+| `HK_START_SECTION` | `--dart-define=HK_START_SECTION=repository` |
+| `HK_START_SEARCH` | `--dart-define=HK_START_SEARCH="is:signed platform:ios"` |
+| `HK_APPEARANCE` | `--dart-define=HK_APPEARANCE=light` |
+| `HK_LANGUAGE` | `--dart-define=HK_LANGUAGE=arabic` |
+| `HK_WA_SOURCE` | `--dart-define=HK_WA_SOURCE=android` |
+| `HK_REPO_DIR` | `--dart-define=HK_REPO_DIR=/path/to/ipsws` |
 
-Switch the source to **From iPhone** to read WhatsApp straight off a connected,
-trusted device — no `.crypt15` or key needed:
+## Credits and licences
 
-- **Back up now** makes a local backup (HK Tools already does this), or pick an
-  existing HK Tools / Finder / iTunes backup that contains WhatsApp.
-- HK Tools finds `ChatStorage.sqlite` in the backup via `Manifest.db`, copies it
-  out (the backup is never modified), and reads it with the same browse/export UI.
-- iOS stores chats in a different schema from Android (`ZWACHATSESSION` /
-  `ZWAMESSAGE` / `ZWAMEDIAITEM`, Apple-epoch timestamps); the reader maps both to
-  one model. Encrypted backups can't be read — turn backup encryption off
-  (Devices → Backup) and back up again.
-
-This is the **read** half. Transferring iPhone→iPhone is best done as a whole-device
-backup/restore (Devices → Backup); a WhatsApp-only merge into another iPhone, or a
-push onto Android, needs the fragile DB injection that isn't supported and isn't built.
-
-Getting the key: `/data/data/com.whatsapp/files/key` on a rooted phone, or
-WhatsApp → Chats → Chat backup → End-to-end encrypted backup (the 64-digit key).
-Use only for your own data, and mind WhatsApp's Terms of Service.
+Device features use [libimobiledevice](https://libimobiledevice.org) (LGPL),
+[idevicerestore](https://github.com/libimobiledevice/idevicerestore),
+[pymobiledevice3](https://github.com/doronz88/pymobiledevice3) (GPL-3.0) and
+[ipatool](https://github.com/majd/ipatool) (MIT), all run as separate programs, never
+linked. Firmware data comes from [IPSW.me](https://ipsw.me), Android device names from
+Google Play's public device list, device photos from Apple and Wikipedia.

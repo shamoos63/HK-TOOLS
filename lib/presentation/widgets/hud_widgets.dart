@@ -26,29 +26,11 @@ class HudBackground extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    final reduced = HudEffects.reducedOf(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: HudColors.background,
-        gradient: reduced
-            ? null
-            : LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color.alphaBlend(
-                    HudColors.cyan.withValues(alpha: 0.05),
-                    HudColors.background,
-                  ),
-                  HudColors.background,
-                ],
-                stops: const [0, 0.45],
-              ),
-      ),
-      child: child,
-    );
-  }
+  Widget build(BuildContext context) => ColoredBox(
+    // Solid main panel; only the sidebar shows the native window material.
+    color: HudColors.background,
+    child: child,
+  );
 }
 
 /// Card surface: solid fill, hairline border, soft shadow.

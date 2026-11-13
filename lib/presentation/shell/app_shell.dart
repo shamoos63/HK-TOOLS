@@ -68,11 +68,13 @@ class _AppShellState extends ConsumerState<AppShell> {
         autofocus: true,
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          body: HudBackground(
-            child: Row(
-              children: [
-                Sidebar(),
-                Expanded(
+          // Transparent: the native window material shows through the
+          // sidebar; the main panel below paints its own solid background.
+          body: Row(
+            children: [
+              Sidebar(),
+              Expanded(
+                child: HudBackground(
                   child: Column(
                     children: [
                       // Windows: no system title bar. The header doubles as
@@ -122,8 +124,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                     ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

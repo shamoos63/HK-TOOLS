@@ -353,10 +353,13 @@ class DependencyManager {
         )
         .timeout(const Duration(seconds: 30));
     if (res.statusCode == 404) {
+      // GitHub answers 404 both when there is no release and when the
+      // repository is private (releases of private repos need a sign-in).
       throw DependencyInstallException(
-        'No Windows device tools release is published in '
-        '${Downloads.windowsExtrasRepo} yet. Run the "Windows device tools" '
-        'workflow on GitHub, then try again.',
+        'Couldn\'t find a Windows device tools release in '
+        '${Downloads.windowsExtrasRepo}. The repository has to be public '
+        '(GitHub hides releases of private repositories), and its "Windows '
+        'device tools" workflow must have finished successfully.',
       );
     }
     if (res.statusCode != 200) {

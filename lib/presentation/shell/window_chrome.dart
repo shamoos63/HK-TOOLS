@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../core/theme/hud_theme.dart';
@@ -37,7 +38,9 @@ Future<void> initWindowChrome() async {
   // WM_GETMINMAXINFO itself, so the limit has to be set here.
   await windowManager.setMinimumSize(const Size(960, 600));
   // Opaque window: nothing from the desktop can show through.
-  await windowManager.setBackgroundColor(HudColors.background);
+  // Transparent so the Mica effect (flutter_acrylic) shows behind the
+  // sidebar; the main panel paints its own solid background.
+  await windowManager.setBackgroundColor(Colors.transparent);
 }
 
 Future<void> _toggleMaximize() async {
@@ -210,5 +213,23 @@ class _ChromeButtonState extends State<_ChromeButton> {
         ),
       ),
     );
+  }
+}
+
+/// Native window material behind the (transparent) sidebar: macOS's sidebar
+/// vibrancy, Windows 11's Mica. [glass] = false turns it off (solid window).
+Future<void> applyWindowEffect({required bool glass, required bool dark}) async {
+  if (kIsWeb || !(Platform.isMacOS || Platform.isWindows)) return;
+  try {
+    if (!glass) {
+      await Window.setEffect(effect: WindowEffect.disabled);
+      return;
+    }
+    await Window.setEffect(
+      effect: Platform.isMacOS ? WindowEffect.sidebar : WindowEffect.mica,
+      dark: dark,
+    );
+  } on Object {
+    // Older Windows without Mica: stay solid.
   }
 }
