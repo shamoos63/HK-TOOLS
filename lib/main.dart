@@ -245,8 +245,7 @@ class _HkIpswManagerAppState extends ConsumerState<HkIpswManagerApp>
     final glass =
         (Platform.isMacOS || Platform.isWindows) && !s.effectiveReducedEffects;
     final glassChanged =
-        glass != HudColors.translucent ||
-        (glass && light != HudColors.isLight);
+        glass != HudColors.translucent || (glass && light != HudColors.isLight);
     HudColors.translucent = glass;
     if (glassChanged || _firstApply) {
       _firstApply = false;

@@ -10,6 +10,7 @@ import '../../../domain/entities/ios_device.dart';
 import '../../../services/device/contacts_service.dart';
 import '../../providers/device_providers.dart';
 import '../../widgets/hud_widgets.dart';
+import 'contacts_live.dart';
 import 'device_widgets.dart';
 import '../../../core/l10n/l10n.dart';
 
@@ -29,16 +30,67 @@ enum _Filter { all, duplicates, noPhone }
 
 /// Contacts from the device's local backups: browse, search, find duplicates,
 /// export to vCard / CSV.
-class ContactsTab extends ConsumerStatefulWidget {
+/// Contacts: live on the iPhone (read and write), or from a local backup.
+class ContactsTab extends StatefulWidget {
   const ContactsTab({super.key, required this.device});
 
   final ConnectedDevice device;
 
   @override
-  ConsumerState<ContactsTab> createState() => _ContactsTabState();
+  State<ContactsTab> createState() => _ContactsTabState();
 }
 
-class _ContactsTabState extends ConsumerState<ContactsTab> {
+class _ContactsTabState extends State<ContactsTab> {
+  bool _live = true;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: SegmentedButton<bool>(
+          segments: [
+            ButtonSegment(
+              value: true,
+              icon: const Icon(Icons.phone_iphone_rounded, size: 16),
+              label: Text(tr('On the iPhone')),
+            ),
+            ButtonSegment(
+              value: false,
+              icon: const Icon(Icons.backup_rounded, size: 16),
+              label: Text(tr('From a backup')),
+            ),
+          ],
+          selected: {_live},
+          showSelectedIcon: false,
+          style: const ButtonStyle(visualDensity: VisualDensity.compact),
+          onSelectionChanged: (v) => setState(() => _live = v.first),
+        ),
+      ),
+      const SizedBox(height: 12),
+      Expanded(
+        child: _live
+            ? LiveContacts(
+                key: ValueKey(widget.device.id),
+                device: widget.device,
+              )
+            : _BackupContacts(device: widget.device),
+      ),
+    ],
+  );
+}
+
+class _BackupContacts extends ConsumerStatefulWidget {
+  const _BackupContacts({required this.device});
+
+  final ConnectedDevice device;
+
+  @override
+  ConsumerState<_BackupContacts> createState() => _BackupContactsState();
+}
+
+class _BackupContactsState extends ConsumerState<_BackupContacts> {
   String? _source;
   String _query = '';
   _Filter _filter = _Filter.all;

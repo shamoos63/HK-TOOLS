@@ -84,8 +84,10 @@ abstract final class HudColors {
 
   static bool get isLight => current.brightness == Brightness.light;
   static Color get background => current.background;
+
   /// Transparent over the native sidebar material when [translucent].
-  static Color get sidebar => translucent ? Colors.transparent : current.sidebar;
+  static Color get sidebar =>
+      translucent ? Colors.transparent : current.sidebar;
   static Color get surface => current.surface;
   static Color get surfaceRaised => current.surfaceRaised;
   static Color get glass => current.overlay.withValues(alpha: 0.06);

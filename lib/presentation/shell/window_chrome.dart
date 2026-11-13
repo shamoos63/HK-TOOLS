@@ -218,7 +218,10 @@ class _ChromeButtonState extends State<_ChromeButton> {
 
 /// Native window material behind the (transparent) sidebar: macOS's sidebar
 /// vibrancy, Windows 11's Mica. [glass] = false turns it off (solid window).
-Future<void> applyWindowEffect({required bool glass, required bool dark}) async {
+Future<void> applyWindowEffect({
+  required bool glass,
+  required bool dark,
+}) async {
   if (kIsWeb || !(Platform.isMacOS || Platform.isWindows)) return;
   try {
     if (!glass) {
